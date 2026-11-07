@@ -1,0 +1,14 @@
+*.exe
+doc/
+upserver.sh
+perf.data*
+dev/
+experiments/
+*.pyc
+a.out
+travis.log
+build/
+.vscode/
+*.log
+*.so
+*.pyd
