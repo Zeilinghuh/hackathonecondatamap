@@ -8,7 +8,7 @@ http://127.0.0.1:8000. The root README includes uv commands.
 | Location | Owns |
 | --- | --- |
 | `src/backend/terrain/main.cpp` | Native command-line entry |
-| `src/backend/terrain/dataPipeline.cpp` | Income XML/GeoJSON parsing, matching, geometry and JSON output |
+| `src/backend/terrain/dataPipeline.cpp` | Income/density XML and GeoJSON parsing, matching, geometry and JSON output |
 | `src/backend/terrain/terrainDEM.cpp` | Interpolation, RichDEM raster/slopes and native contours |
 | `src/backend/terrain_service.py` | Compilation, XLSX ZIP unpacking, cache and response bytes |
 | `src/backend/server.py` | HTTP/static assets and chat routing |
@@ -26,9 +26,9 @@ are active adapters, not duplicate terrain implementations.
 
 ## Data pipeline
 
-The ZIP adapter resolves workbook tab **16** through workbook relationships and
-unpacks its worksheet and shared strings. C++ RapidXML parses the latest annual
-income column, keeps local-authority observations and normalizes names for the
+The ZIP adapter resolves workbook tabs **16** (income) and **3** (population
+density) through workbook relationships and unpacks those worksheets and the
+shared strings. C++ RapidXML parses each table's latest dated column, keeps local-authority observations and normalizes names for the
 planning-authority join. RapidJSON parses the boundary source. Both parsers are
 already included with vendored RichDEM and retain their licenses.
 
@@ -41,6 +41,10 @@ calculates synthetic slope. Native marching squares extracts 5-unit contours.
 The product represents 2024 gross disposable household income per head:
 361/382 planning authorities match. Missing special-authority income remains
 unshaded. Heights are an income metaphor, not physical altitude or wealth.
+
+Each feature also carries `population_density`: residents per km² at mid-2025
+from the same ONS workbook, joined by the same name match (361/382). It never
+feeds the DEM; `metadata.population_density` records its year and coverage.
 No depression filling, hydrology or weather simulation modifies the surface.
 
 C++ writes the terrain JSON plus a small authority/context index. Python serves
@@ -71,7 +75,14 @@ The main range spans the DEM's 2nd–98th percentiles; the red tail reaches the
 actual maximum. The shader draws anti-aliased 5-unit isolines with heavier
 25-unit lines and screen-width scaling. Dense lines fade on steep slopes.
 
-With terrain off, cached boundary segments are drawn as instanced screen-width
+The **Map layer** switch picks TERRAIN, DENSITY or BORDERS. DENSITY is a flat
+choropleth texture, painted once from the cached authority paths, uploaded once
+and drawn on the unraised mesh in both views. Nine classes (breaks at 50, 100,
+250, 500, 1k, 2.5k, 5k and 10k per km²) use a single magenta ramp with steadily
+increasing lightness. Dark means sparse and pale pink means crowded, which keeps
+the cyan hover distinct. Unmatched authorities stay slate grey.
+
+With terrain off (DENSITY or BORDERS), cached boundary segments are drawn as instanced screen-width
 quads, so borders stay sharp at any zoom. A one-time expanded-buffer fallback
 supports browsers without instancing. Polygon highlight triangles are prepared
 once using locally vendored Earcut 3.0.2, including holes and disconnected

@@ -1,4 +1,4 @@
-// Asset parsing, income join, geometry reduction and product serialization.
+// Asset parsing, income/density joins, geometry reduction and product serialization.
 // Parsers are the RapidJSON/RapidXML already shipped with bundled RichDEM.
 #include "dataPipeline.hpp"
 #include "terrainDEM.hpp"
@@ -27,7 +27,8 @@ using Buffer = rapidjson::StringBuffer;
 using Writer = rapidjson::Writer<Buffer>;
 using Node = rapidxml::xml_node<>;
 using XY = std::array<double, 2>;
-struct Income { std::map<std::string, double> values; std::string year; };
+// One workbook table: its latest dated column, keyed by normalized authority name.
+struct Table { std::map<std::string, double> values; std::string year; };
 
 std::vector<char> readChars(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -87,18 +88,19 @@ std::optional<double> number(std::string value) {
     if (*end || !std::isfinite(result) || result < 0) return std::nullopt;
     return result;
 }
-Income readIncome(const std::filesystem::path& stringsPath, const std::filesystem::path& sheetPath) {
+Table readTable(const std::filesystem::path& stringsPath, const std::filesystem::path& sheetPath, const char* label) {
     auto stringsData = readChars(stringsPath), sheetData = readChars(sheetPath);
     rapidxml::xml_document<> stringsXML, sheetXML;
     stringsXML.parse<rapidxml::parse_no_data_nodes>(stringsData.data());
     sheetXML.parse<rapidxml::parse_no_data_nodes>(sheetData.data());
     auto* sst = child(&stringsXML, "sst");
     auto* rows = child(child(&sheetXML, "worksheet"), "sheetData");
-    if (!sst || !rows) throw std::runtime_error("Invalid income workbook XML.");
+    if (!sst || !rows) throw std::runtime_error(std::string("Invalid workbook XML for ") + label + ".");
     std::vector<std::string> shared;
     for (auto* item = sst->first_node(); item; item = item->next_sibling()) shared.push_back(richText(item));
-    Income result;
-    int incomeColumn = -1;
+    Table result;
+    std::string latest;
+    int valueColumn = -1;
     for (auto* row = rows->first_node(); row; row = row->next_sibling()) {
         std::map<int, std::string> cells;
         for (auto* cell = row->first_node(); cell; cell = cell->next_sibling()) {
@@ -121,24 +123,27 @@ Income readIncome(const std::filesystem::path& stringsPath, const std::filesyste
             }
             cells[column-1] = std::move(value);
         }
-        if (incomeColumn < 0) {
+        if (valueColumn < 0) {
             if (cells[0] != "Area code" || cells[1] != "Area name") continue;
-            for (const auto& [column, label] : cells)
-                if (label.size() >= 14 && label[4] == '-' && label[7] == '-' && label.substr(10,4) == "/P1Y" &&
-                    label.substr(0,4) > result.year) { incomeColumn = column; result.year = label.substr(0,4); }
-            if (incomeColumn < 0) throw std::runtime_error("No annual income column in workbook tab 16.");
+            // Headers start with an ISO date: "2024-01-01/P1Y (...)" or "2025-06-30 (Persons)".
+            for (const auto& [column, heading] : cells)
+                if (column >= 2 && heading.size() >= 10 && heading[4] == '-' && heading[7] == '-' &&
+                    std::all_of(heading.begin(), heading.begin()+4, [](char c) { return c >= '0' && c <= '9'; }) &&
+                    heading.substr(0,10) > latest) { valueColumn = column; latest = heading.substr(0,10); }
+            if (valueColumn < 0) throw std::runtime_error(std::string("No dated column in ") + label + ".");
+            result.year = latest.substr(0,4);
             continue;
         }
         if (!localAuthority(cells[0]) || cells[1].empty()) continue;
-        const auto value = number(cells[incomeColumn]);
+        const auto value = number(cells[valueColumn]);
         if (!value) continue;
         const auto name = normalized(cells[1]);
         const auto previous = result.values.find(name);
         if (previous != result.values.end() && previous->second != *value)
-            throw std::runtime_error("Ambiguous income records for " + cells[1]);
+            throw std::runtime_error(std::string("Ambiguous ") + label + " records for " + cells[1]);
         result.values[name] = *value;
     }
-    if (incomeColumn < 0 || result.values.empty()) throw std::runtime_error("No local-authority income records in workbook tab 16.");
+    if (valueColumn < 0 || result.values.empty()) throw std::runtime_error(std::string("No local-authority records in ") + label + ".");
     return result;
 }
 
@@ -237,14 +242,17 @@ void geometry(Writer& writer, const JSON& value) {
     } else throw std::runtime_error("Unsupported boundary geometry: " + type);
     writer.EndObject();
 }
-struct Feature { std::string code, name; std::optional<double> income; };
+struct Feature { std::string code, name; std::optional<double> income, density; };
 void properties(Writer& writer, const Feature& feature) {
     writer.StartObject(); key(writer,"authority_code"); text(writer,feature.code);
     key(writer,"authority_name"); text(writer,feature.name); key(writer,"income_per_head");
     if (feature.income) writer.Double(*feature.income); else writer.Null_();
+    key(writer,"population_density");
+    if (feature.density) writer.Double(*feature.density); else writer.Null_();
     writer.EndObject();
 }
-void metadata(Writer& writer, const Income& income, unsigned matched, unsigned total) {
+void metadata(Writer& writer, const Table& income, const Table& density, unsigned matched,
+              unsigned densityMatched, unsigned total) {
     writer.StartObject(); key(writer,"metric"); text(writer,"Gross disposable household income per head");
     key(writer,"source_year"); text(writer,income.year);
     key(writer,"elevation_range_m"); writer.StartArray(); writer.Int(0); writer.Int(1000); writer.EndArray();
@@ -253,12 +261,19 @@ void metadata(Writer& writer, const Income& income, unsigned matched, unsigned t
     key(writer,"bounds"); writer.StartArray(); for (double bound : GridSpec{}.bounds) writer.Double(bound); writer.EndArray();
     key(writer,"method"); text(writer,"Smoothed inverse-distance interpolation of income samples; synthetic elevation, not geographic altitude");
     key(writer,"engine"); text(writer,"terrainDEM.cpp"); key(writer,"dem_backend"); text(writer,"RichDEM");
-    key(writer,"data_pipeline"); text(writer,"dataPipeline.cpp"); writer.EndObject();
+    key(writer,"data_pipeline"); text(writer,"dataPipeline.cpp");
+    key(writer,"population_density"); writer.StartObject();
+    key(writer,"metric"); text(writer,"Population density");
+    key(writer,"units"); text(writer,"residents per square kilometre");
+    key(writer,"source_year"); text(writer,density.year);
+    key(writer,"matched_authorities"); writer.Uint(densityMatched);
+    key(writer,"method"); text(writer,"Authority-level ONS mid-year value drawn as a flat choropleth; it does not change terrain heights");
+    writer.EndObject(); writer.EndObject();
 }
 }
 
 void writeIncome(std::ostream& out, const std::filesystem::path& sharedStrings, const std::filesystem::path& worksheet) {
-    const auto income = readIncome(sharedStrings,worksheet);
+    const auto income = readTable(sharedStrings,worksheet,"workbook table");
     Buffer buffer; Writer writer(buffer,9);
     writer.StartObject(); key(writer,"source_year"); text(writer,income.year);
     key(writer,"income_by_name"); writer.StartObject();
@@ -274,9 +289,10 @@ void writeSimplifiedGeometry(std::istream& input, std::ostream& out) {
 }
 
 void buildProduct(const std::filesystem::path& boundaries, const std::filesystem::path& sharedStrings,
-                  const std::filesystem::path& worksheet, const std::filesystem::path& output,
-                  const std::filesystem::path& context) {
-    const auto income = readIncome(sharedStrings,worksheet);
+                  const std::filesystem::path& incomeSheet, const std::filesystem::path& densitySheet,
+                  const std::filesystem::path& output, const std::filesystem::path& context) {
+    const auto income = readTable(sharedStrings,incomeSheet,"income workbook tab 16");
+    const auto density = readTable(sharedStrings,densitySheet,"population density workbook tab 3");
     auto source = readChars(boundaries);
     rapidjson::Document document; document.ParseInsitu<0>(source.data());
     if (document.HasParseError()) throw std::runtime_error("Invalid planning-authority GeoJSON.");
@@ -284,10 +300,15 @@ void buildProduct(const std::filesystem::path& boundaries, const std::filesystem
     if (!features.IsArray()) throw std::runtime_error("Expected a GeoJSON feature array.");
     std::vector<Feature> records;
     std::vector<Sample> samples;
+    unsigned densityMatched = 0;
     for (rapidjson::SizeType i = 0; i < features.Size(); ++i) {
         const auto& props = field(features[i],"properties");
-        Feature record{stringField(props,"LPA26CD"),stringField(props,"LPA26NM"),std::nullopt};
-        const auto match = income.values.find(normalized(record.name));
+        Feature record{stringField(props,"LPA26CD"),stringField(props,"LPA26NM"),std::nullopt,std::nullopt};
+        const auto lookup = normalized(record.name);
+        if (const auto found = density.values.find(lookup); found != density.values.end()) {
+            record.density = found->second; ++densityMatched;
+        }
+        const auto match = income.values.find(lookup);
         if (match != income.values.end()) {
             record.income = match->second;
             samples.push_back({numericField(props,"LONG"),numericField(props,"LAT"),*record.income});
@@ -306,10 +327,10 @@ void buildProduct(const std::filesystem::path& boundaries, const std::filesystem
         out << buffer.GetString();
     }
     out << "],\"dem\":"; writeDEM(out,GridSpec{},samples); out << ",\"metadata\":";
-    Buffer meta; Writer metaWriter(meta,9); metadata(metaWriter,income,samples.size(),records.size());
+    Buffer meta; Writer metaWriter(meta,9); metadata(metaWriter,income,density,samples.size(),densityMatched,records.size());
     out << meta.GetString() << '}'; out.close();
     Buffer facts; Writer writer(facts,9);
-    writer.StartObject(); key(writer,"metadata"); metadata(writer,income,samples.size(),records.size());
+    writer.StartObject(); key(writer,"metadata"); metadata(writer,income,density,samples.size(),densityMatched,records.size());
     key(writer,"authorities"); writer.StartObject();
     for (const auto& record : records) { text(writer,record.code); properties(writer,record); }
     writer.EndObject(); writer.EndObject();

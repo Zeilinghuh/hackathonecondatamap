@@ -3,12 +3,11 @@ import { TerrainRenderer } from "./render/terrainrenderer.js";
 import { AreaIndex } from "./areas.js";
 import { AreaInteraction } from "./areainteraction.js";
 import { MapNavigation } from "./mapnavigation.js";
-import { TerrainControls } from "../GUI/terraincontrols.js";
+import { TerrainControls, formatDensity } from "../GUI/terraincontrols.js";
 import { CapriCompanion } from "../GUI/capri.js";
 
 const canvas=document.querySelector("#map"), panel=document.querySelector(".map-panel");
 const loading=document.querySelector("#loading"), explain=document.querySelector("#explain-area");
-const key=document.querySelector(".map-key");
 let texture,renderer,navigation,interaction,selection,framePending=false;
 const controls=new TerrainControls({
   onChange:()=>{interaction?.invalidate();requestDraw();},
@@ -29,24 +28,27 @@ function requestDraw() {
 function draw(now=performance.now()) {
   if(!navigation?.view || !renderer || renderer.gl.isContextLost())return;
   const highlights=interaction?.highlights(now) || [];
-  renderer.draw(navigation.view,controls.visible,navigation.mode,highlights);
-  if(key.hidden===controls.visible)key.hidden=!controls.visible;
+  renderer.draw(navigation.view,controls.visible,navigation.mode,highlights,controls.density);
   if(interaction?.animating && !document.hidden)requestDraw();
 }
 
 function showArea(area,position) {
   selection=area;
-  const {authority_name:name,income_per_head:income,authority_code:code}=area.feature.properties;
+  const {authority_name:name,income_per_head:income,population_density:density,authority_code:code}=area.feature.properties;
   document.querySelector("#area-name").textContent=name;
   document.dispatchEvent(new CustomEvent("terrain:selection",{detail:{authorityCode:code,authorityName:name}}));
   explain.disabled=capri.busy;
   const stats=document.querySelector("#area-stats");
-  if(income===null) {
-    stats.innerHTML="<div><dt>Height</dt><dd>Not available</dd></div><div><dt>Income per head</dt><dd>No matching value</dd></div>";
-  } else {
-    const height=Math.round(texture.elevationAt(...position)).toLocaleString();
-    stats.innerHTML="<div><dt>Synthetic height</dt><dd>"+height+" units</dd></div><div><dt>Income per head</dt><dd>£"+Math.round(income).toLocaleString()+"</dd></div>";
-  }
+  const densityText=density===null?"No matching value":formatDensity(density);
+  const rows=income===null
+    ? [["Height","Not available"],["Income per head","No matching value"]]
+    : [["Synthetic height",Math.round(texture.elevationAt(...position)).toLocaleString()+" units"],
+       ["Income per head","£"+Math.round(income).toLocaleString()]];
+  rows.push(["Population density",densityText]);
+  stats.replaceChildren(...rows.map(([label,value])=>{
+    const row=document.createElement("div"),term=document.createElement("dt"),detail=document.createElement("dd");
+    term.textContent=label;detail.textContent=value;row.append(term,detail);return row;
+  }));
 }
 
 async function initialise() {
@@ -70,10 +72,16 @@ async function initialise() {
       canvas,index:areas,renderer,getView:()=>navigation.view,getMode:()=>navigation.mode,
       isTerrainVisible:()=>controls.visible,isDragging:()=>navigation.pointers.size>0,
       onChange:requestDraw,onSelect:showArea,
+      describe:({authority_name:name,population_density:density})=>controls.density
+        ?name+" · "+(density===null?"No density data":formatDensity(density))
+        :name,
     });
     controls.setReady();controls.setLegend(texture.colourRange,texture.peakHeight);
+    const density=terrain.metadata.population_density;
+    controls.setDensitySource(density?.source_year);
     document.querySelector("#source-note").textContent=terrain.metadata.metric+", "+terrain.metadata.source_year+". "+
-      terrain.metadata.matched_authorities+" of "+terrain.features.length+" planning authorities matched; special authorities remain unshaded.";
+      terrain.metadata.matched_authorities+" of "+terrain.features.length+" planning authorities matched; special authorities remain unshaded."+
+      (density?" Population density (ONS, mid-"+density.source_year+"): "+density.matched_authorities+" matched.":"");
     draw();loading.classList.add("hidden");
   } catch(error){loading.textContent="Could not load the map: "+error.message;}
 }

@@ -272,7 +272,7 @@ export class CapriCompanion {
     if(this.busy)return;
     this.selectedAuthority=properties.authority_code;
     this.chat.querySelector("#capri-context").textContent="Context: "+properties.authority_name;
-    this.input.value="Explain "+properties.authority_name+"'s income per head and what it means on this terrain map. Mention any missing data or limits.";
+    this.input.value="Explain "+properties.authority_name+"'s income per head and population density, and what they mean on this map. Mention any missing data or limits.";
     this.send();
   }
 }

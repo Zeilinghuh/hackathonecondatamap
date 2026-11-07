@@ -10,6 +10,20 @@ export const CONTOUR_COLOURS = [
 // Extra headroom for the high-income peaks above the main rainbow range.
 export const PEAK_COLOURS = ["#df0000", "#bc0000", "#970000", "#720000", "#4d0000"];
 
+// Population density classes (residents per km²). One-hue sequential ramp with
+// monotone OKLCH lightness: dark recedes into the night sea, bright = crowded.
+export const DENSITY_BREAKS = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
+export const DENSITY_COLOURS = [
+  "#670242", "#841259", "#9c2e70", "#b34688", "#cc5da1",
+  "#e474ba", "#fd8cd4", "#feb6e3", "#feddf2",
+];
+export const NO_DATA_COLOUR = "#26374a";
+export function densityClass(value) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return -1;
+  const index = DENSITY_BREAKS.findIndex(limit => value < limit);
+  return index < 0 ? DENSITY_BREAKS.length : index;
+}
+
 // Prepare the colour raster and land mask once; the GPU draws all contours.
 export class TerrainTexture {
   constructor(data,areas) {
@@ -77,8 +91,18 @@ export class TerrainTexture {
     this.base=document.createElement("canvas");
     this.base.width=Math.round((east-west)*scale);this.base.height=3072;
     const context=this.base.getContext("2d");
-    context.setTransform(scale,0,0,scale,-west*scale,top*scale);context.fillStyle="#26374a";
+    context.setTransform(scale,0,0,scale,-west*scale,top*scale);context.fillStyle=NO_DATA_COLOUR;
     for(const {path} of areas.areas)context.fill(path,"evenodd");
+    // Flat authority choropleth; same projection and size as the base fill.
+    this.density=document.createElement("canvas");
+    this.density.width=this.base.width;this.density.height=this.base.height;
+    const density=this.density.getContext("2d");
+    density.setTransform(scale,0,0,scale,-west*scale,top*scale);
+    for(const {path,feature} of areas.areas) {
+      const band=densityClass(feature.properties.population_density);
+      density.fillStyle=band<0?NO_DATA_COLOUR:DENSITY_COLOURS[band];
+      density.fill(path,"evenodd");
+    }
     this.terrain=document.createElement("canvas");
     this.terrain.width=this.base.width;this.terrain.height=this.base.height;
     const fill=this.terrain.getContext("2d");fill.drawImage(this.base,0,0);

@@ -87,7 +87,8 @@ export class TerrainRenderer {
     gl.uniform1i(gl.getUniformLocation(this.program, "matched"), 1);
     // Upload only at creation/restoration, never when moving the camera.
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-    this.textures = [this.textureSource.base, this.textureSource.terrain, this.textureSource.matched].map(source => {
+    this.textures = [this.textureSource.base, this.textureSource.terrain, this.textureSource.matched,
+      this.textureSource.density].map(source => {
       const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
       let image = source;
       if (source.height > Math.min(3072, maxSize) || source.width > maxSize) {
@@ -124,7 +125,8 @@ export class TerrainRenderer {
     return {centre, basis, matrix};
   }
 
-  draw(view, visible, mode="2d", highlights=[]) {
+  // visible: income terrain overlay. density: flat density fill when terrain is off.
+  draw(view, visible, mode="2d", highlights=[], density=false) {
     const gl = this.gl;
     if (gl.isContextLost()) return;
     gl.useProgram(this.program);
@@ -141,7 +143,7 @@ export class TerrainRenderer {
     gl.uniform1f(this.raisedLocation, visible && mode === "3d" ? 1 : 0);
     gl.uniform1f(this.contoursLocation,visible ? 1 : 0);
     gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
-    gl.bindTexture(gl.TEXTURE_2D, this.textures[visible ? 1 : 0]);
+    gl.bindTexture(gl.TEXTURE_2D, this.textures[visible ? 1 : density ? 3 : 0]);
     gl.drawElements(gl.TRIANGLES, this.mesh.indices.length, gl.UNSIGNED_SHORT, 0);
     if (!visible) this.areaLayer.draw(matrix,view,highlights);
   }
