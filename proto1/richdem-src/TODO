@@ -1,0 +1,71 @@
+*Switch Zhou 2016 to use nshift instead of nToI
+*Update internal citations in Parallel D8 and Parallel PF
+
+*Build for Conda:
+  * https://conda.io/docs/user-guide/tasks/build-packages/recipe.html
+  * https://conda-forge.org/
+
+*Implement Peckham flow metric
+*Add LICENSE notices to the top of source files
+
+Shary's formulas from p. 18 of Digital Terrain Analysis in Soil Science and Geology in `books/geoscience`
+
+
+Output in D8 ArcGIS (Debasish Pal <debasish_pal@sutd.edu.sg>):
+Sorry Richard. I misunderstood. I would like to receive the format as in ArcGIS flow direction coding (1, 2, 4, 8, 16, 32, 64, 128 in clockwise direction)
+
+
+# Add two addtional methods.
+# MFD with square root (Katy will send either a paper or derrivation to Richard)
+
+# change proportion ordering so that proportions are listed in math order of index
+# center, E, NE, N, NW, W, SW, S, SE
+
+# option 1
+flow_proportions = rd.CalculateProportions(dem, method='D8')
+ts = rd.TopologicSort(flow_proportions)
+# ts would be an object with these attributes
+ts.queue
+ts.levels
+accum = rd.FlowAccumGeneric(ts, flow_proportions)
+
+#option 2
+accum = rd.FlowAccumulation(dem, method='D8')
+
+Topographic Wetness Index
+Catchment Delineation
+
+
+
+
+
+
+plot_directive comments
+weighted flow accumulation katy
+1/2 power mfd katy
+stack/queue katy
+
+
+Documentation stuff
+===================
+
+More systematic way of including C++
+
+https://breathe.readthedocs.io/en/latest/quickstart.html
+.. doxygenindex::
+.. doxygenfunction::
+.. doxygenstruct::
+.. doxygenenum::
+.. doxygentypedef::
+.. doxygenclass::
+
+
+Plane curvature
+Profile curvature
+Slope (percent rise)
+Aspect
+Flow accumulation
+SPI
+CTI
+
+Do with D8 & Dinf, Pit-filled & ~Pit-filled
