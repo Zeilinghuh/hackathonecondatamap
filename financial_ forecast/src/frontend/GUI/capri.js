@@ -25,7 +25,6 @@ export class CapriCompanion {
       <section id="capri-chat" class="capri-chat" aria-label="Chat with Capri" hidden>
         <header class="capri-header"><div><strong>CAPRI // Support</strong><span id="capri-status" class="capri-status" role="status">Checking link…</span></div><button class="capri-close" aria-label="Close Capri chat">×</button></header>
         <div id="capri-messages" class="capri-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
-        <div class="capri-suggestions"><button type="button">Explain this map</button><button type="button">Why is London red?</button></div>
         <p id="capri-context" class="capri-context">Context: UK income terrain</p>
         <form class="capri-form"><textarea id="capri-input" class="capri-input" aria-label="Message Capri" placeholder="Hey Capri…" rows="2" maxlength="2000" required></textarea><button class="capri-send" type="submit">SEND</button></form>
       </section>`);
@@ -47,11 +46,6 @@ export class CapriCompanion {
     this.input.addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); this.send(); }
     });
-    this.chat.querySelectorAll(".capri-suggestions button").forEach(button => button.addEventListener("click", () => {
-      if (this.busy) return;
-      this.input.value = button.textContent;
-      this.send();
-    }));
     this.button.addEventListener("pointerenter", () => { this.hovered = true; this.vx = this.vy = 0; });
     this.button.addEventListener("pointerleave", () => { this.hovered = false; });
     this.button.addEventListener("focus", () => { this.focused = true; this.vx = this.vy = 0; });
@@ -130,7 +124,7 @@ export class CapriCompanion {
     this.place(!open);
     if (open) {
       // A mobile drawer should not obscure the conversation.
-      if (matchMedia("(max-width:760px)").matches && !document.querySelector("#sidebar").hidden) document.querySelector("#sidebar-toggle").click();
+      if (matchMedia("(max-width:760px)").matches && document.querySelector("#sidebar-toggle").getAttribute("aria-expanded") === "true") document.querySelector("#sidebar-toggle").click();
       requestAnimationFrame(() => this.input.focus({preventScroll:true}));
     } else this.button.focus({preventScroll:true});
   }
