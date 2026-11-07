@@ -1,3 +1,5 @@
 __pycache__/
 .venv/
 proto1/world_map.html
+requirements.txt
+proto1/test.txt

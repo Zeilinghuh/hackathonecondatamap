@@ -1,0 +1,21 @@
+# Local Python environment
+.venv/
+__pycache__/
+*.py[cod]
+
+# Generated RichDEM extension/build outputs
+richdem-src/
+richdem-src/wrappers/pyrichdem/build/
+richdem-src/wrappers/pyrichdem/_richdem*.pyd
+
+# Local databases and geospatial data stores
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+*.gpkg
+*.mbtiles
+*.parquet
+*.feather
+*.h5
+*.hdf5
