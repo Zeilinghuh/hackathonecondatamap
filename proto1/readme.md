@@ -16,11 +16,11 @@ UK by postcode
 #employment:  all-datasets.xlsx pg 11    
 #interest rates: 4.00% (5 Nov 2026)  
 #humans:  https://www.nomisweb.co.uk/output/census/2021/pcd_p001.csv  
-#consumer spending:  https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/datasets/familyspendingworkbook3expenditurebyregion/fye2025/workbook3expenditurebyregion.xlsx  
-#cash flow:
-#uncertainty:
+#consumer spending:  [https://www.ons.gov.uk/fileuri=/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/datasets/familyspendingworkbook3expenditurebyregion/fye2025/workbook3expenditurebyregion.xlsx  ](https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/datasets/familyspendingworkbook3expenditurebyregion/fye2025/workbook3expenditurebyregion.xlsx)  
+#regional economic activity: file:///C:/Users/User/Downloads/Regional%20economic%20activity%20by%20gross%20domestic%20product,%20UK%201998%20to%202024.pdf  
+#uncertainty:   
 #average debt by postcode area: https://www.thimbl.com/news/debt-by-postcode  
 #house price to earnings ratio: all-datasets.xlsx table 44
-#government stimulus:
+#government stimulus:  
 #government expenditure: https://www.ons.gov.uk/generator?uri=/economy/governmentpublicsectorandtaxes/publicspending/articles/governmentexpenditureintheuk/2026-05-18/b917e765&format=xls  
 #annual growth rate: https://www.ons.gov.uk/generator?format=csv&uri=/economy/grossdomesticproductgdp/timeseries/kgs4/qna  
