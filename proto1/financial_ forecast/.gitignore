@@ -1,0 +1,35 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache / compiled files
+__pycache__/
+*.py[cod]
+
+# RichDEM generated build outputs
+richdem-src/.git.richdem-backup/
+richdem-src/wrappers/pyrichdem/build/
+richdem-src/wrappers/pyrichdem/*.egg-info/
+richdem-src/wrappers/pyrichdem/_richdem*.pyd
+
+# General build / distribution outputs
+build/
+dist/
+*.egg-info/
+
+# IDE / editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
