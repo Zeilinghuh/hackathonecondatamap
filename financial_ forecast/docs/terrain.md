@@ -1,0 +1,99 @@
+# Terrain and rendering
+
+Run `python src/backend/server.py` from the project directory, then open
+http://127.0.0.1:8000. The root README includes uv commands.
+
+## Responsibilities
+
+| Location | Owns |
+| --- | --- |
+| `src/backend/terrain/main.cpp` | Native command-line entry |
+| `src/backend/terrain/dataPipeline.cpp` | Income XML/GeoJSON parsing, matching, geometry and JSON output |
+| `src/backend/terrain/terrainDEM.cpp` | Interpolation, RichDEM raster/slopes and native contours |
+| `src/backend/terrain_service.py` | Compilation, XLSX ZIP unpacking, cache and response bytes |
+| `src/backend/server.py` | HTTP/static assets and chat routing |
+| `src/frontend/map/mapnavigation.js` | Input, camera bounds, zoom and resize |
+| `src/frontend/map/areas.js` | Projected authority geometry, picking and cached highlight triangles |
+| `src/frontend/map/areainteraction.js` | Hover fade/pulse, selection and interaction state |
+| `src/frontend/map/render/terrainrenderer.js` | Shared 2D/3D GPU rendering and camera |
+| `src/frontend/map/render/arealayer.js` | Sharp GPU borders and cyan highlights |
+| `src/frontend/map/render/terraintexture.js` | Colour raster, land mask and static fill textures |
+| `src/frontend/map/terrainmath.js` | Projection, mesh and ray/triangle math |
+
+There is one native executable, one data product and one browser GPU renderer.
+The old CPU contour renderer and second map canvas are removed. Python files
+are active adapters, not duplicate terrain implementations.
+
+## Data pipeline
+
+The ZIP adapter resolves workbook tab **16** through workbook relationships and
+unpacks its worksheet and shared strings. C++ RapidXML parses the latest annual
+income column, keeps local-authority observations and normalizes names for the
+planning-authority join. RapidJSON parses the boundary source. Both parsers are
+already included with vendored RichDEM and retain their licenses.
+
+C++ simplifies boundary geometry with radial filtering and Douglas–Peucker,
+preserving holes and small islands. This is display geometry; original source
+assets remain untouched. Matched representative LONG/LAT points and raw income
+feed the unchanged 200 × 320 Mercator interpolation. RichDEM owns the grid and
+calculates synthetic slope. Native marching squares extracts 5-unit contours.
+
+The product represents 2024 gross disposable household income per head:
+361/382 planning authorities match. Missing special-authority income remains
+unshaded. Heights are an income metaphor, not physical altitude or wealth.
+No depression filling, hydrology or weather simulation modifies the surface.
+
+C++ writes the terrain JSON plus a small authority/context index. Python serves
+cached compressed bytes without loading the large GeoJSON/DEM into dictionaries
+or repeatedly serializing it. Capri reads the small indexed context.
+
+## Cache
+
+All outputs live under ignored `build/terrain/`:
+
+- `terrainDEM.exe`/`terrainDEM` and `native-build.key`
+- `terrain.json.gz`, `terrain-context.json` and `terrain-cache.key`
+
+Source/header/compiler-flag changes invalidate native compilation. Source assets
+and data-pipeline changes invalidate the product. Remove the product key and
+restart to force regeneration. Temporary products are published only after a
+successful build; corrupt gzip/context caches are rebuilt. HTTP uses ETags and
+gzip negotiation.
+
+## GPU rendering
+
+Both views use the same mesh, textures and contour shader. 2D is a top-down,
+unraised camera projection. 3D adds a fixed linear display exaggeration and soft
+lighting; it does not recalculate or renormalize heights.
+
+The colour ramp remains blue through cyan, green, yellow, red and dark crimson.
+The main range spans the DEM's 2nd–98th percentiles; the red tail reaches the
+actual maximum. The shader draws anti-aliased 5-unit isolines with heavier
+25-unit lines and screen-width scaling. Dense lines fade on steep slopes.
+
+With terrain off, cached boundary segments are drawn as instanced screen-width
+quads, so borders stay sharp at any zoom. A one-time expanded-buffer fallback
+supports browsers without instancing. Polygon highlight triangles are prepared
+once using locally vendored Earcut 3.0.2, including holes and disconnected
+islands. Hover and selection reuse those buffers; they do not triangulate or
+upload geometry during interaction.
+
+Hover fades/pulses cyan, then fades out on leave. Selected areas retain a quieter
+outline. Reduced-motion preferences disable pulsing. The map stops scheduling
+frames when idle; hovering never requests AI. **Ask Capri to explain** explicitly
+submits the selected authority's code with a chat message.
+
+The browser needs WebGL and standard shader derivatives for these views.
+Context restoration recreates GPU resources from retained geometry/textures.
+Rendering follows [instancing guidance](https://developer.mozilla.org/en-US/docs/Web/API/ANGLE_instanced_arrays)
+and [standard derivatives](https://developer.mozilla.org/en-US/docs/Web/API/OES_standard_derivatives).
+Earcut's source/license are under `render/vendor/`; no CDN or runtime network
+dependency is added.
+
+Drag/arrows pan; Shift-drag/right-drag or Shift-arrow rotates in 3D. Scroll/+/-,
+pinch and UK view/0 zoom/reset. Zoom stays 1–12×. 2D locks a fitted axis; the 3D
+camera target can move inside the UK bounds even at fit zoom. Neither view allows
+unbounded panning. Pixel density is capped at 2×.
+
+The native grid still limits income detail. Land colour textures can soften at
+extreme zoom; GPU contour and boundary strokes remain screen-width sharp.

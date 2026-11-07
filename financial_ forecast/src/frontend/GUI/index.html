@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UK economic terrain</title>
+    <link rel="stylesheet" href="/GUI/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="map-panel" aria-label="UK economic terrain map">
+        <button id="sidebar-toggle" class="sidebar-toggle" aria-controls="sidebar" aria-expanded="true">Hide panel ▸</button>
+        <canvas id="map" tabindex="0" aria-label="Interactive map of UK planning authorities. Use arrow keys to pan, plus and minus to zoom, and zero to reset."></canvas>
+        <div class="navigation" aria-label="Map navigation">
+          <button id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+          <output id="zoom-level" aria-live="polite">1×</output>
+          <button id="zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button>
+          <button id="reset-view" title="Reset view (0)">UK view</button>
+        </div>
+        <p class="map-hint">Scroll to zoom · Drag to explore</p>
+        <p id="hover-label" class="hover-label" hidden></p>
+        <p id="view-status" class="view-status" role="status" hidden></p>
+        <div id="loading" class="loading">Generating terrain from local-authority income data…</div>
+        <div class="map-key" aria-label="Elevation colour scale">
+          <span id="legend-low">Lower terrain</span>
+          <div class="gradient"></div>
+          <span id="legend-high">Higher terrain</span>
+        </div>
+      </section>
+      <aside id="sidebar" class="controls-panel">
+        <p class="eyebrow">UK // ECON TERRAIN</p>
+        <h1>FINANCIAL<br>FORECAST</h1>
+        <p class="intro">Income per head shapes the terrain. Colour bands and contour lines show synthetic height, not geographic altitude.</p>
+
+        <div class="view-switch" role="group" aria-label="Map view">
+          <button id="view-2d" aria-pressed="true" disabled>2D MAP</button>
+          <button id="view-3d" aria-pressed="false" disabled>3D TERRAIN</button>
+        </div>
+
+        <label class="switch-row" for="terrain-toggle">
+          <span>Terrain overlay</span>
+          <input id="terrain-toggle" type="checkbox" checked />
+        </label>
+
+        <p class="control-note">Blue lows → cyan → green → yellow → red → dark crimson peaks.</p>
+
+        <section class="details" aria-live="polite">
+          <p class="details-label">Select an area</p>
+          <h2 id="area-name">Explore the map</h2>
+          <dl id="area-stats">
+            <div><dt>Elevation</dt><dd>—</dd></div>
+            <div><dt>Income per head</dt><dd>—</dd></div>
+          </dl>
+          <button id="explain-area" class="explain-area" disabled>Ask Capri to explain</button>
+        </section>
+
+        <p id="source-note" class="source-note"></p>
+        <div class="panel-footer"><span class="status-pixel"></span> CAPRI LINK / READY</div>
+      </aside>
+    </main>
+    <script type="module" src="/map/app.js"></script>
+  </body>
+</html>

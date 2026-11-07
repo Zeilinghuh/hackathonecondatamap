@@ -1,0 +1,30 @@
+application:
+	name: Financial Forecasting App
+	purpose: >-
+		Help users manage financial data, build forecasts, and review projected
+		outcomes.
+
+architecture:
+	style: Modular client-server application
+	components:
+		- name: Web client
+			responsibility: Collect financial inputs and display forecasts and summaries.
+		- name: Backend API
+			responsibility: Validate requests, enforce access controls, and coordinate services.
+		- name: Forecasting service
+			responsibility: Calculate projections from financial data and user assumptions.
+		- name: Data ingestion
+			responsibility: Import and normalize uploaded or connected-source data.
+		- name: Database
+			responsibility: Store user accounts, financial records, assumptions, and results.
+
+	data_flow:
+		- Users enter assumptions or import financial data through the web client.
+		- The API validates the input and persists normalized records.
+		- The forecasting service calculates projections and stores the results.
+		- The client retrieves and presents forecasts for review.
+
+	cross_cutting:
+		security: Authenticate users and restrict access to their own financial records.
+		data_quality: Validate imported data and assumptions before calculations.
+		privacy: Keep sensitive financial details out of operational logs.

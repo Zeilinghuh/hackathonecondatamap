@@ -1,0 +1,184 @@
+"""Local API for the UK economic-terrain overlay.
+
+Run from the `financial_ forecast` directory:
+
+    python src/backend/server.py
+
+Python serves cached HTTP bytes and Capri chat. C++ parses and joins source
+data, simplifies boundaries, generates RichDEM terrain and writes the product.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+from http import HTTPStatus
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any, ClassVar
+from urllib.parse import urlparse
+
+from capri.capri import CapriError, CapriService
+from terrain_service import PROJECT_ROOT, TerrainStore
+
+WEB_ROOT = PROJECT_ROOT / "src" / "frontend"
+TERRAIN = TerrainStore()
+CAPRI = CapriService(PROJECT_ROOT)
+
+
+class TerrainRequestHandler(SimpleHTTPRequestHandler):
+    """Serve the browser shell and the derived terrain GeoJSON."""
+
+    # Windows file associations can identify .js as text/plain, which browsers
+    # reject for ES modules. Keep these MIME types independent of the registry.
+    extensions_map: ClassVar[dict[str, str]] = {
+        **SimpleHTTPRequestHandler.extensions_map,
+        ".js": "text/javascript",
+        ".css": "text/css",
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
+
+    def do_GET(self) -> None:
+        route = urlparse(self.path).path
+        if route == "/api/health":
+            self.send_json({"status": "ok"})
+            return
+        if route == "/api/capri/status":
+            self.send_json(CAPRI.status())
+            return
+        if route == "/capri-assets/sprites.png":
+            sprite = PROJECT_ROOT / "assets" / "visual" / "capri" / "sprites.png"
+            if not sprite.is_file():
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            content = sprite.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+        if route == "/api/terrain":
+            try:
+                content, compressed, etag = TERRAIN.response()
+                unchanged = self.headers.get("If-None-Match") == etag
+                encodings = self.headers.get("Accept-Encoding", "").lower()
+                use_gzip = any(
+                    part.split(";")[0].strip() == "gzip"
+                    and not re.search(r";\s*q=0(?:\.0*)?\s*$", part)
+                    for part in encodings.split(",")
+                )
+                body = compressed if use_gzip else content
+                self.send_response(
+                    HTTPStatus.NOT_MODIFIED if unchanged else HTTPStatus.OK
+                )
+                self.send_header("ETag", etag)
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Vary", "Accept-Encoding")
+                if not unchanged:
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    if use_gzip:
+                        self.send_header("Content-Encoding", "gzip")
+                    self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                if not unchanged:
+                    self.wfile.write(body)
+            except (
+                OSError,
+                ValueError,
+                RuntimeError,
+                subprocess.SubprocessError,
+            ) as error:
+                self.send_json(
+                    {"error": str(error)}, status=HTTPStatus.INTERNAL_SERVER_ERROR
+                )
+            return
+        if route == "/":
+            self.path = "/GUI/index.html"
+        if route == "/favicon.ico":
+            self.send_response(HTTPStatus.NO_CONTENT)
+            self.end_headers()
+            return
+        super().do_GET()
+
+    def do_POST(self) -> None:
+        if urlparse(self.path).path != "/api/capri/chat":
+            self.send_json({"error": "Unknown endpoint."}, HTTPStatus.NOT_FOUND)
+            return
+        # Chat is initiated by this local app, not cross-site form submissions.
+        origin = self.headers.get("Origin")
+        if origin and origin not in {
+            f"http://127.0.0.1:{self.server.server_port}",
+            f"http://localhost:{self.server.server_port}",
+        }:
+            self.send_json(
+                {"error": "This chat request must come from the local app."},
+                HTTPStatus.FORBIDDEN,
+            )
+            return
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= 32768:
+                raise CapriError("The chat request is too large or empty.", 413)
+            if self.headers.get_content_type() != "application/json":
+                raise CapriError("Send the chat request as JSON.", 415)
+            payload = json.loads(self.rfile.read(size))
+            CAPRI.validate(payload)
+            self.send_json(
+                CAPRI.reply(payload, TERRAIN.context(payload.get("selected_authority")))
+            )
+        except CapriError as error:
+            self.send_json({"error": str(error)}, HTTPStatus(error.status))
+        except (ValueError, UnicodeError):
+            self.send_json(
+                {"error": "The chat request wasn't valid JSON."}, HTTPStatus.BAD_REQUEST
+            )
+        except (OSError, RuntimeError, subprocess.SubprocessError):
+            self.send_json(
+                {"error": "The map context is temporarily unavailable."},
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
+    def send_json(
+        self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK
+    ) -> None:
+        content = json.dumps(payload, separators=(",", ":"), allow_nan=False).encode(
+            "utf-8"
+        )
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Serve the UK economic-terrain map.")
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--build-only",
+        action="store_true",
+        help="Validate terrain generation without starting the server.",
+    )
+    args = parser.parse_args()
+
+    if args.build_only:
+        metadata = TERRAIN.metadata()
+        print(json.dumps(metadata, indent=2))
+        return
+
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), TerrainRequestHandler)
+    print(f"Terrain map available at http://127.0.0.1:{args.port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nTerrain server stopped.")
+    finally:
+        server.server_close()
+
+
+if __name__ == "__main__":
+    main()
