@@ -14,4 +14,5 @@
 #debt to income ratio: https://www.federalreserve.gov/releases/z1/dataviz/household_debt/state/table/  
 #capital flow: https://claude.ai/chat/60e593a3-7eb4-468c-9f46-b62dcdf6b9a5  
 #government stimulus:   
-#government aid: https://worldpopulationreview.com/state-rankings/federal-aid-by-state  
+#government aid: https://worldpopulationreview.com/state-rankings/federal-aid-by-state
+#dem file: https://richdem.readthedocs.io/en/latest/depression_filling.html
