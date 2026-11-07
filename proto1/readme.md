@@ -15,11 +15,12 @@ UK by postcode
 #household income: https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/incomeandwealth/bulletins/smallareamodelbasedincomeestimates/financialyearending2023  
 #employment:  all-datasets.xlsx pg 11  
 #interest rates:
-#humans:  https://www.nomisweb.co.uk/output/census/2021/pcd_p001.csv
+#humans:  https://www.nomisweb.co.uk/output/census/2021/pcd_p001.csv  
 #consumer spending:
 #cash flow:
 #uncertainty:
-#debt to incone ratio:
+#average debt by postcode area: https://www.thimbl.com/news/debt-by-postcode  
+#house price to earnings ratio: all-datasets.xlsx table 44
 #government stimulus:
 #government aid:
 #annual growth rate: https://www.ons.gov.uk/generator?format=csv&uri=/economy/grossdomesticproductgdp/timeseries/kgs4/qna  
