@@ -16,6 +16,7 @@ GEO_KEY = "LAD24CD"        # <- code column in the boundary file (year suffix ma
 
 wealth = pd.read_xlsx("household_wealth.xlsx", sheet_name="16")       # <- your file
 
+
 CODE_COL = "Area code"     # <- the column holding E06000001, TLC31, etc.
 VALUE_COL = "avg_wealth"   # <- column to plot
 
