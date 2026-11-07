@@ -1,7 +1,7 @@
 // Picking and a small highlight state; frames only run while a glow is active.
 export class AreaInteraction {
-  constructor({canvas,index,renderer,getView,getMode,isTerrainVisible,isDragging,onChange,onSelect}) {
-    Object.assign(this,{canvas,index,renderer,getView,getMode,isTerrainVisible,isDragging,onChange,onSelect});
+  constructor({canvas,index,renderer,getView,getMode,isTerrainVisible,isDragging,onChange,onSelect,describe=properties=>properties.authority_name}) {
+    Object.assign(this,{canvas,index,renderer,getView,getMode,isTerrainVisible,isDragging,onChange,onSelect,describe});
     this.reducedMotion=matchMedia("(prefers-reduced-motion: reduce)");
     this.fading=[];
     this.label=document.querySelector("#hover-label");
@@ -30,7 +30,8 @@ export class AreaInteraction {
     }
     const position=this.point && this.position(this.point,false);
     const area=position && this.index.find(position);
-    if(area?.index===this.hover?.area.index || (!area&&!this.hover))return;
+    // Same area: the layer may have changed, so keep the label text current.
+    if(area?.index===this.hover?.area.index || (!area&&!this.hover)){this.updateLabel();return;}
     if(this.hover && !this.reducedMotion.matches) {
       this.fading.push({area:this.hover.area,opacity:this.opacity(now),leftAt:now});
       if(this.fading.length>4)this.fading.shift();
@@ -44,7 +45,8 @@ export class AreaInteraction {
     this.canvas.classList.toggle("is-over-area",!!area);
     this.canvas.dataset.hoveredArea=area?.feature.properties.authority_code || "";
     this.label.hidden=!area;
-    this.label.textContent=area?area.feature.properties.authority_name+" · Click to select":"";
+    const text=area?this.describe(area.feature.properties)+" · Click to select":"";
+    if(this.label.textContent!==text)this.label.textContent=text;
   }
 
   opacity(now) {
