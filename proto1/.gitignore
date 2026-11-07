@@ -4,7 +4,7 @@ __pycache__/
 *.py[cod]
 
 # Generated RichDEM extension/build outputs
-richdem-src/
+richdem-src/.git.richdem-backup/
 richdem-src/wrappers/pyrichdem/build/
 richdem-src/wrappers/pyrichdem/_richdem*.pyd
 
