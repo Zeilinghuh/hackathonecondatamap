@@ -1,21 +1,35 @@
-# Local Python environment
+# Python virtual environment
 .venv/
+venv/
+env/
+
+# Python cache / compiled files
 __pycache__/
 *.py[cod]
 
-# Generated RichDEM extension/build outputs
+# RichDEM generated build outputs
 richdem-src/.git.richdem-backup/
 richdem-src/wrappers/pyrichdem/build/
+richdem-src/wrappers/pyrichdem/*.egg-info/
 richdem-src/wrappers/pyrichdem/_richdem*.pyd
 
-# Local databases and geospatial data stores
-*.db
-*.sqlite
-*.sqlite3
-*.duckdb
-*.gpkg
-*.mbtiles
-*.parquet
-*.feather
-*.h5
-*.hdf5
+# General build / distribution outputs
+build/
+dist/
+*.egg-info/
+
+# IDE / editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
