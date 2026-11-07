@@ -13,14 +13,14 @@ US by state
 
 UK by postcode
 #household income: https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/incomeandwealth/bulletins/smallareamodelbasedincomeestimates/financialyearending2023  
-#employment:  all-datasets.xlsx pg 11  
-#interest rates:
+#employment:  all-datasets.xlsx pg 11    
+#interest rates: 4.00% (5 Nov 2026)  
 #humans:  https://www.nomisweb.co.uk/output/census/2021/pcd_p001.csv  
-#consumer spending:
+#consumer spending:  https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/datasets/familyspendingworkbook3expenditurebyregion/fye2025/workbook3expenditurebyregion.xlsx  
 #cash flow:
 #uncertainty:
 #average debt by postcode area: https://www.thimbl.com/news/debt-by-postcode  
 #house price to earnings ratio: all-datasets.xlsx table 44
 #government stimulus:
-#government aid:
+#government expenditure: https://www.ons.gov.uk/generator?uri=/economy/governmentpublicsectorandtaxes/publicspending/articles/governmentexpenditureintheuk/2026-05-18/b917e765&format=xls  
 #annual growth rate: https://www.ons.gov.uk/generator?format=csv&uri=/economy/grossdomesticproductgdp/timeseries/kgs4/qna  
