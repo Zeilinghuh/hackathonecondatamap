@@ -153,10 +153,7 @@ export class TerrainRenderer {
     return {centre, basis, matrix};
   }
 
-  surfaceOf(surface) {
-    if (surface === "mist") surface = "income";
-    return surface && this.meshes[surface] ? surface : null;
-  }
+  surfaceOf(surface) { return surface && this.meshes[surface] ? surface : null; }
 
   updateFrame(name,dem) {
     const gl=this.gl;
@@ -178,10 +175,9 @@ export class TerrainRenderer {
     }
   }
 
-  draw(view, surface, mode="2d", highlights=[]) {
+  draw(view, surface, mode="2d", highlights=[], mistEnabled=false) {
     const gl = this.gl;
     if (gl.isContextLost()) return;
-    const mistEnabled = surface === "mist";
     surface = this.surfaceOf(surface);
     gl.useProgram(this.program);
     gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface || "income"]);

@@ -4,15 +4,16 @@ const NOTES = {
   terrain: "Blue lows → cyan → green → yellow → red → dark crimson peaks.",
   density: "Population density terrain: height follows log₁₀ residents per km². Bright blue lows are sparse, black peaks are crowded; contours are white.",
   borders: "Authority borders only. Hover an area, then click to select it.",
-  mist: "Business-death mist: denser wisps indicate a higher share of active businesses that ceased trading in 2024.",
 };
 export const formatDensity = value => Math.round(value).toLocaleString() + " / km²";
 
 // DOM controls live in GUI; the map and terrain renderer remain reusable.
 export class TerrainControls {
-  constructor({ onChange, onZoom, onReset, onMode }) {
+  constructor({ onChange, onOverlayChange = onChange, onZoom, onReset, onMode }) {
     this.layer = "terrain";
+    this.mistEnabled = false;
     this.layerButtons = [...document.querySelectorAll(".layer-switch button")];
+    this.mistToggle = document.querySelector("#mist-toggle");
     const colours = [...CONTOUR_COLOURS, ...PEAK_COLOURS];
     document.querySelector(".gradient").style.background = `linear-gradient(90deg, ${colours.map((colour, index) => `${colour} ${index / colours.length * 100}% ${(index + 1) / colours.length * 100}%`).join(", ")})`;
     this.buildDensityLegend();
@@ -20,6 +21,12 @@ export class TerrainControls {
       if (button.dataset.layer === this.layer) return;
       this.setLayer(button.dataset.layer);
       onChange();
+    });
+    this.mistToggle.addEventListener("click", () => {
+      this.mistEnabled = !this.mistEnabled;
+      this.mistToggle.setAttribute("aria-pressed", String(this.mistEnabled));
+      document.querySelector("#mist-key").hidden = !this.mistEnabled;
+      onOverlayChange();
     });
     document.querySelector("#zoom-in").addEventListener("click", () => onZoom(1.4));
     document.querySelector("#zoom-out").addEventListener("click", () => onZoom(1 / 1.4));
@@ -49,8 +56,8 @@ export class TerrainControls {
     requestAnimationFrame(() => requestAnimationFrame(() => shell.classList.add("sidebar-ready")));
   }
 
-  // Raised, contoured surface for the layer: "income", "density" or null (flat borders + hover).
-  get surface() { return {terrain: "income", density: "density", mist: "mist"}[this.layer] ?? null; }
+  // Raised, contoured base surface: "income", "density" or null (flat borders + hover).
+  get surface() { return {terrain: "income", density: "density"}[this.layer] ?? null; }
   get visible() { return this.surface !== null; }
   get density() { return this.layer === "density"; }
 
@@ -60,7 +67,6 @@ export class TerrainControls {
     document.querySelector("#control-note").textContent = NOTES[layer];
     document.querySelector("#terrain-key").hidden = layer !== "terrain";
     document.querySelector("#density-key").hidden = layer !== "density";
-    document.querySelector("#mist-key").hidden = layer !== "mist";
   }
 
   buildDensityLegend() {

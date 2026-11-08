@@ -40,7 +40,7 @@
       <aside id="sidebar" class="controls-panel">
         <p class="eyebrow">UK // ECON TERRAIN</p>
         <h1>FINANCIAL<br>FORECAST</h1>
-        <p class="intro">Income per head shapes the terrain. Colour bands and contour lines show synthetic height, not geographic altitude. Switch to population density or see business-death rates as drifting mist above the surface.</p>
+        <p class="intro">Income per head shapes the terrain. Colour bands and contour lines show synthetic height, not geographic altitude. Switch to population density or toggle the business-death mist over the map.</p>
 
         <div class="view-switch" role="group" aria-label="Map view">
           <button id="view-2d" aria-pressed="true" disabled>2D MAP</button>
@@ -58,8 +58,8 @@
 
         <div class="layer-row weather-row">
           <span id="weather-label">Weather</span>
-          <div class="layer-switch" role="group" aria-labelledby="weather-label">
-            <button data-layer="mist" aria-pressed="false">MIST</button>
+          <div class="weather-switch" role="group" aria-labelledby="weather-label">
+            <button id="mist-toggle" type="button" aria-pressed="false">MIST</button>
           </div>
         </div>
 

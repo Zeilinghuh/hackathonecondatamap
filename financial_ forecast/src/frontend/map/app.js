@@ -12,6 +12,7 @@ const loading=document.querySelector("#loading"), explain=document.querySelector
 let texture,renderer,navigation,interaction,selection,selectedPosition,timeline,terrainData,framePending=false;
 const controls=new TerrainControls({
   onChange:()=>{timeline?.useSurface();interaction?.invalidate();if(selection)showArea(selection,selectedPosition);requestDraw();},
+  onOverlayChange:()=>{interaction?.invalidate();requestDraw();},
   onZoom:factor=>navigation?.zoom(factor),
   onReset:()=>{renderer?.reset();navigation?.resize(true);},
   onMode:mode=>{if(!navigation)return;navigation.setMode(mode);controls.setMode(mode);},
@@ -29,7 +30,7 @@ function requestDraw() {
 function draw(now=performance.now()) {
   if(!navigation?.view || !renderer || renderer.gl.isContextLost())return;
   const highlights=interaction?.highlights(now) || [];
-  renderer.draw(navigation.view,controls.surface,navigation.mode,highlights);
+  renderer.draw(navigation.view,controls.surface,navigation.mode,highlights,controls.mistEnabled);
   if(interaction?.animating && !document.hidden)requestDraw();
 }
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)requestDraw();});
