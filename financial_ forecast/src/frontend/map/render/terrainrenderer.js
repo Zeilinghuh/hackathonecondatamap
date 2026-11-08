@@ -1,11 +1,7 @@
 import { cameraBasis, terrainMesh, pickTerrain, latitudeAt, HEIGHT_SCALE, DENSITY_HEIGHT_SCALE } from "../terrainmath.js";
 import { createProgram, uploadBuffer } from "./gl.js";
-<<<<<<< HEAD
 import { AreaLayer } from "./arealayer.js?v=vegetation-contours-1";
-=======
-import { AreaLayer } from "./arealayer.js";
 import { SeaGrid } from "./seagrid.js";
->>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
 
 const vertexSource = `
 attribute vec3 position;
@@ -85,6 +81,7 @@ export class TerrainRenderer {
     this.textureSource = textureSource;
     this.areas = areas;
     this.meshes = {income: terrainMesh(dems.income)};
+    this.meshes.employment=terrainMesh({...dems.income,values:new Float64Array(dems.income.values.length)},DENSITY_HEIGHT_SCALE);
     if (dems.density) {
       if (dems.density.width !== this.dem.width || dems.density.height !== this.dem.height)
         throw new Error("Density and income grids must share one size.");
@@ -130,7 +127,7 @@ export class TerrainRenderer {
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
     this.maxTextureSize=maxSize;
     this.textures = [this.textureSource.base, this.textureSource.terrain, this.textureSource.matched,
-      this.textureSource.densityTerrain, this.textureSource.mist].map(source => {
+      this.textureSource.densityTerrain, this.textureSource.mist,this.textureSource.employmentTerrain || this.textureSource.base,this.textureSource.employmentMatched || this.textureSource.matched].map(source => {
       const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
       let image = source;
       if (source.height > Math.min(3072, maxSize) || source.width > maxSize) {
@@ -153,15 +150,11 @@ export class TerrainRenderer {
     gl.clearColor(0,0,0,1);
     this.areaLayer = new AreaLayer(gl,this.areas);
     this.seaGrid = new SeaGrid(gl);
-    if(this.vegetationData) {
-      const {observations,palette,missing}=this.vegetationData;
-      this.areaLayer.setVegetation(observations,palette,missing);
-    }
+
   }
 
   setVegetation(observations,palette,missing) {
-    this.vegetationData={observations,palette,missing};
-    if(!this.gl.isContextLost())this.areaLayer.setVegetation(observations,palette,missing);
+    this.updateFrame("employment",this.textureSource.updateEmployment(observations,palette,missing));
     this.canvas.dataset.vegetationColouredAreas=String(this.areas.areas.filter(area=>
       Number.isFinite(observations[area.feature.properties.authority_code])).length);
   }
@@ -184,11 +177,11 @@ export class TerrainRenderer {
 
   updateFrame(name,dem) {
     const gl=this.gl;
-    this.meshes[name]=terrainMesh(dem,name==="density"?DENSITY_HEIGHT_SCALE:HEIGHT_SCALE);
+    this.meshes[name]=terrainMesh(dem,name==="income"?HEIGHT_SCALE:DENSITY_HEIGHT_SCALE);
     if(gl.isContextLost())return;
     gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[name]);
     gl.bufferSubData(gl.ARRAY_BUFFER,0,this.meshes[name].vertices);
-    for(const [index,source] of [[name==="density"?3:1,name==="density"?this.textureSource.densityTerrain:this.textureSource.terrain],[2,this.textureSource.matched]]) {
+    for(const [index,source] of [[name==="employment"?5:name==="density"?3:1,name==="employment"?this.textureSource.employmentTerrain:name==="density"?this.textureSource.densityTerrain:this.textureSource.terrain],[name==="employment"?6:2,name==="employment"?this.textureSource.employmentMatched:this.textureSource.matched]]) {
       gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.textures[index]);
       let image=source;
       if(source.width>this.maxTextureSize || source.height>this.maxTextureSize) {
@@ -202,7 +195,6 @@ export class TerrainRenderer {
     }
   }
 
-<<<<<<< HEAD
   bindMesh(surface="income") {
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface]);
@@ -212,61 +204,32 @@ export class TerrainRenderer {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);
   }
 
-  drawVegetationContours(matrix,view) {
-    const gl=this.gl;
-    // Reuse the income height field on the flat employment map. AreaLayer has
-    // enabled alpha blending and disabled depth testing before this pass.
-    gl.useProgram(this.program);
-    this.bindMesh();
-    gl.uniformMatrix4fv(this.cameraLocation,false,matrix);
-    gl.uniform1f(this.raisedLocation,0);
-    gl.uniform1f(this.heightScaleLocation,HEIGHT_SCALE);
-    gl.uniform1f(this.contoursLocation,1);
-    gl.uniform1f(this.contourPassLocation,1);
-    gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
-    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
-    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.textures[0]);
-    gl.drawElements(gl.TRIANGLES,this.meshes.income.indices.length,gl.UNSIGNED_SHORT,0);
-    gl.uniform1f(this.contourPassLocation,0);
-    gl.uniform1f(this.contoursLocation,0);
-  }
-
-  draw(view, surface, mode="2d", highlights=[], vegetation=false) {
-=======
   draw(view, surface, mode="2d", highlights=[], mistEnabled=false, vegetation=false) {
->>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
     const gl = this.gl;
     if (gl.isContextLost()) return;
     surface = this.surfaceOf(surface);
     gl.viewport(0,0,this.canvas.width,this.canvas.height);
-    if(vegetation)gl.clearColor(.86,.94,.99,1);
-    else gl.clearColor(11/255,16/255,24/255,1);
+    gl.clearColor(11/255,16/255,24/255,1);
     gl.disable(gl.BLEND);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     const camera=this.camera(view,mode),matrix=camera.matrix;
-    if(mode==="3d" && !vegetation)this.seaGrid.draw(matrix,camera.centre);
+    if(mode==="3d")this.seaGrid.draw(matrix,camera.centre);
     gl.useProgram(this.program);
     this.bindMesh(surface || "income");
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-<<<<<<< HEAD
-    gl.clearColor(0,0,0,1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    const matrix = this.camera(view,mode).matrix;
-=======
->>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
     gl.uniformMatrix4fv(this.cameraLocation, false, matrix);
     gl.uniform1f(this.raisedLocation, surface && mode === "3d" ? 1 : 0);
     gl.uniform1f(this.contoursLocation,surface ? 1 : 0);
     gl.uniform1f(this.contourPassLocation,0);
     gl.uniform1f(this.densityLocation,surface === "density" ? 1 : 0);
-    gl.uniform1f(this.vegetationLocation,vegetation?1:0);
-    gl.uniform1f(this.heightScaleLocation,surface === "density" ? DENSITY_HEIGHT_SCALE : HEIGHT_SCALE);
+    gl.uniform1f(this.vegetationLocation,0);
+    gl.uniform1f(this.heightScaleLocation,surface === "income" ? HEIGHT_SCALE : DENSITY_HEIGHT_SCALE);
     gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
     gl.uniform1f(this.mistPassLocation, 0);
-    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
-    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3}[surface] ?? 0]);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[surface==="employment"?6:2]);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3,employment:5}[surface] ?? 0]);
     gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
-    if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation);
+    if (!surface) this.areaLayer.draw(matrix,view,highlights);
     if (mistEnabled) {
       gl.useProgram(this.program);
       gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface || "income"]);
@@ -287,12 +250,9 @@ export class TerrainRenderer {
       gl.disable(gl.BLEND);
       gl.activeTexture(gl.TEXTURE0);
     }
-<<<<<<< HEAD
-    if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation,
-      vegetation ? () => this.drawVegetationContours(matrix,view) : undefined);
-=======
->>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
   }
+
+  vegetationHeight(x,z) {return this.textureSource.elevationAt(x,latitudeAt(z),this.textureSource.employmentDem)*DENSITY_HEIGHT_SCALE;}
 
   pan(view, dx, dy) {
     const {right: r, up: u} = cameraBasis(this.yaw, this.tilt);

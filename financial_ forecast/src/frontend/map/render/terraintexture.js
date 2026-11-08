@@ -33,6 +33,7 @@ const toRGB = colour => colour.slice(1).match(/../g).map(channel => parseInt(cha
 export class TerrainTexture {
   constructor(data,areas) {
     this.dem = data.dem;
+    this.areas = areas;
     this.densityDem = data.density_dem;
     this.densityRange = data.metadata?.population_density?.log10_range;
     const sorted = [...this.dem.values].sort((a, b) => a - b);
@@ -50,6 +51,38 @@ export class TerrainTexture {
       ? this.rasterise(this.densityDem, value => this.densityPalette[this.densityBandAt(value)]) : null;
     this.buildSurfaces(areas);
     this.mist = this.buildMist(areas);
+  }
+
+  updateEmployment(observations,palette,missing) {
+    const dem=this.dem,[west,south,east,north]=dem.bounds,top=mercator(north),bottom=mercator(south);
+    const samples=this.areas.areas.filter(a=>Number.isFinite(observations[a.feature.properties.authority_code])).map(a=>({
+      x:(a.bounds[0]+a.bounds[2])/2,z:(a.bounds[1]+a.bounds[3])/2,rate:observations[a.feature.properties.authority_code],
+    }));
+    // Interpolate a small field once per year, then bilinearly expand to the shared GPU grid.
+    const w=32,h=52,coarse=new Float64Array(w*h),values=new Float64Array(dem.width*dem.height);
+    for(let r=0;r<h;r++)for(let c=0;c<w;c++) {
+      const x=west+c/(w-1)*(east-west),z=top-r/(h-1)*(top-bottom);let sum=0,weights=0;
+      for(const s of samples){const d=(x-s.x)**2+(z-s.z)**2+.001,weight=1/(d*d);sum+=s.rate*weight;weights+=weight;}
+      coarse[r*w+c]=weights?Math.max(0,Math.min(1000,(sum/weights-50)/45*1000)):0;
+    }
+    for(let r=0;r<dem.height;r++)for(let c=0;c<dem.width;c++) {
+      const x=c/(dem.width-1)*(w-1),z=r/(dem.height-1)*(h-1),x0=Math.min(w-2,Math.floor(x)),z0=Math.min(h-2,Math.floor(z)),a=x-x0,b=z-z0;
+      values[r*dem.width+c]=(coarse[z0*w+x0]*(1-a)+coarse[z0*w+x0+1]*a)*(1-b)+(coarse[(z0+1)*w+x0]*(1-a)+coarse[(z0+1)*w+x0+1]*a)*b;
+    }
+    this.employmentDem={...dem,values};
+    const mask=this.landMask(this.areas.areas.filter(a=>Number.isFinite(observations[a.feature.properties.authority_code])).map(a=>a.feature));
+    const breaks=[65,75,80,85],image=this.rasterise(this.employmentDem,value=>{
+      const band=breaks.findIndex(limit=>50+value*.045<limit);return palette[band<0?4:band].slice(0,3);
+    });
+    this.employmentTerrain??=document.createElement("canvas");
+    const canvas=this.employmentTerrain;canvas.width=this.base.width;canvas.height=this.base.height;
+    const context=canvas.getContext("2d");
+    context.drawImage(this.base,0,0);
+    this.drawFill(context,([lon,lat])=>[(lon-west)/(east-west)*canvas.width,(top-mercator(lat))/(top-bottom)*canvas.height],image,mask);
+    this.employmentMatched??=document.createElement("canvas");
+    const matched=this.employmentMatched;matched.width=this.matched.width;matched.height=this.matched.height;
+    const fill=matched.getContext("2d");fill.scale(matched.width,matched.height);fill.fillStyle="white";fill.fill(mask,"nonzero");
+    return this.employmentDem;
   }
 
   buildMist(areas) {

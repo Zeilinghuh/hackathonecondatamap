@@ -5,7 +5,6 @@ import { AreaInteraction } from "./areainteraction.js";
 import { MapNavigation } from "./mapnavigation.js";
 import { TerrainControls, formatDensity, sfx } from "../GUI/terraincontrols.js";
 import { CapriCompanion, AreaMenu } from "../GUI/capri/capri.js";
->>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
 import { Timeline } from "../GUI/timeline.js";
 import { VegetationLayer, vegetationState } from "./vegetation.js";
 
@@ -31,7 +30,7 @@ function draw(now=performance.now()) {
   if(!navigation?.view || !renderer || renderer.gl.isContextLost())return;
   const highlights=interaction?.highlights(now) || [];
   renderer.draw(navigation.view,controls.surface,navigation.mode,highlights,controls.mistEnabled,controls.vegetation);
-  vegetation?.draw(navigation.view,renderer.camera(navigation.view,navigation.mode).matrix,controls.vegetation);
+  vegetation?.draw(navigation.view,renderer.camera(navigation.view,navigation.mode).matrix,controls.vegetation,controls.vegetation && navigation.mode==="3d"?site=>renderer.vegetationHeight(site.x,site.z):null);
   if(interaction?.animating && !document.hidden)requestDraw();
 }
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)requestDraw();});

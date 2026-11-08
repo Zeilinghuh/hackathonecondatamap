@@ -136,7 +136,7 @@ export class TerrainControls {
   }
 
   // Raised, contoured base surface: "income", "density" or null (flat borders + hover).
-  get surface() { return {terrain: "income", density: "density"}[this.layer] ?? null; }
+  get surface() { return {terrain: "income", density: "density",vegetation:"employment"}[this.layer] ?? null; }
   get visible() { return this.surface !== null; }
   get density() { return this.layer === "density"; }
   get vegetation() { return this.layer === "vegetation"; }

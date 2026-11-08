@@ -86,10 +86,10 @@ export function highVegetationSites(sites, observations) {
     .slice(0, MAX_VEGETATION_TREES);
 }
 
-export function projectVegetation(x, z, matrix, width, height) {
-  const clipX = matrix[0] * x + matrix[8] * z + matrix[12];
-  const clipY = matrix[1] * x + matrix[9] * z + matrix[13];
-  const w = matrix[3] * x + matrix[11] * z + matrix[15];
+export function projectVegetation(x, z, matrix, width, height, elevation=0) {
+  const clipX = matrix[0] * x + matrix[4]*elevation + matrix[8] * z + matrix[12];
+  const clipY = matrix[1] * x + matrix[5]*elevation + matrix[9] * z + matrix[13];
+  const w = matrix[3] * x + matrix[7]*elevation + matrix[11] * z + matrix[15];
   return { x: (clipX / w + 1) * width / 2, y: (1 - clipY / w) * height / 2 };
 }
 
@@ -145,7 +145,7 @@ export class VegetationLayer {
     this.cameraKey = null;
   }
 
-  draw(view, matrix, visible) {
+  draw(view, matrix, visible, heightAt=null) {
     this.element.hidden = !visible;
     if (!visible) return;
     const key = [view.width, view.height, view.zoom, ...matrix].join(",");
@@ -155,7 +155,7 @@ export class VegetationLayer {
     const displayed = [], limit = view.width < 600 ? 16 : 28;
     for (let i = 0; i < this.activeSites.length; i++) {
       const site = this.activeSites[i], node = this.nodes[i];
-      const point = projectVegetation(site.x, site.z, matrix, view.width, view.height);
+      const point = projectVegetation(site.x, site.z, matrix, view.width, view.height,heightAt?.(site) ?? 0);
       const onScreen = point.x >= -24 && point.x <= view.width + 24 && point.y >= -8 && point.y <= view.height + 40;
       const clear = onScreen && displayed.length < limit &&
         displayed.every(other => Math.hypot(other.x - point.x, other.y - point.y) >= 28);
