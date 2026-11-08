@@ -18,11 +18,14 @@
           <output id="zoom-level" aria-live="polite">1×</output>
           <button id="zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button>
           <button id="reset-view" title="Reset view (0)">UK view</button>
+          <button id="sound-toggle" type="button" aria-pressed="true" aria-label="Mute sound effects">SFX ON</button>
         </div>
         <p class="map-hint">Scroll to zoom · Drag to explore</p>
         <p id="hover-label" class="hover-label" hidden></p>
         <p id="view-status" class="view-status" role="status" hidden></p>
         <div id="loading" class="loading">Generating terrain from local-authority income and density data…</div>
+        <div class="map-hud">
+        <div class="legend-stack" role="region" aria-label="Map legends" tabindex="0">
         <div class="map-key" id="terrain-key" aria-label="Elevation colour scale">
           <span id="legend-low">Lower terrain</span>
           <div class="gradient"></div>
@@ -46,6 +49,8 @@
           <span class="key-title">Business deaths · 2024</span>
           <div class="mist-gradient"></div>
           <span class="key-scale">Thinner mist → denser mist · % of active businesses</span>
+        </div>
+        </div>
         </div>
       </section>
       <aside id="sidebar" class="controls-panel">

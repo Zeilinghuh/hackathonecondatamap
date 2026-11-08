@@ -196,5 +196,10 @@ dd { margin: 5px 0 0; color: var(--cyan); font-size: 13px; font-weight: bold; }
 @keyframes dizzy-wobble { 0%,100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
 @keyframes angry-shake { 0%,100% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
 
-/* Keep the legend above push-to-talk, including the vegetation legend. */
-.map-panel .map-key { bottom: 100px; }
+/* One flow layout keeps every visible legend above the voice control. */
+.map-hud { position: absolute; z-index: 3; bottom: 18px; left: 18px; display: flex; flex-direction: column; gap: 10px; width: min(270px, calc(100% - 36px)); max-height: calc(100% - 125px); pointer-events: none; }
+.legend-stack { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #4a5771 transparent; pointer-events: auto; }
+.map-hud .map-key { position: static; flex-shrink: 0; width: 100%; pointer-events: auto; }
+.map-hud .capri-voice { position: static; flex-shrink: 0; width: 100%; max-width: 100%; pointer-events: auto; }
+.navigation #sound-toggle { font-size: 7px; padding: 0 8px; border-left: 1px solid var(--line); color: var(--cyan); }
+.navigation #sound-toggle[aria-pressed="false"] { color: var(--muted); }

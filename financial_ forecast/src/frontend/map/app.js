@@ -3,7 +3,7 @@ import { TerrainRenderer } from "./render/terrainrenderer.js";
 import { AreaIndex } from "./areas.js";
 import { AreaInteraction } from "./areainteraction.js";
 import { MapNavigation } from "./mapnavigation.js";
-import { TerrainControls, formatDensity } from "../GUI/terraincontrols.js";
+import { TerrainControls, formatDensity, sfx } from "../GUI/terraincontrols.js";
 import { CapriCompanion, AreaMenu } from "../GUI/capri/capri.js";
 import { Timeline } from "../GUI/timeline.js";
 import { VegetationLayer, vegetationState } from "./vegetation.js";
@@ -146,7 +146,7 @@ async function initialise() {
     interaction=new AreaInteraction({
       canvas,index:areas,renderer,getView:()=>navigation.view,getMode:()=>navigation.mode,
       getSurface:()=>controls.surface,isDragging:()=>navigation.pointers.size>0,
-      onChange:requestDraw,onSelect:showArea,
+      onChange:requestDraw,onSelect:(area,position)=>{sfx.play("click",{gain:.25});showArea(area,position);},
       describe:({authority_name:name,population_density:density,employment_rate:employment,business_death_rate_percent:deathRate})=>
         name+(controls.vegetation
           ?" Â· "+(Number.isFinite(employment)?employment.toFixed(1)+"% employed":"No employment data")

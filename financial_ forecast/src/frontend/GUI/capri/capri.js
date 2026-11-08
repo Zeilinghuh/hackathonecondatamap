@@ -1,5 +1,6 @@
 // The companion is a local animated UI. Only submitting chat calls the AI.
 import {VoiceInput} from "./voice.js";
+import {sfx} from "../terraincontrols.js";
 const FRAMES={orb:[0,1,2,3],idle:[0,0,0,3],talking:[1,2,1,0]};
 export class CapriCompanion {
   constructor(mapPanel) {
@@ -129,6 +130,8 @@ export class CapriCompanion {
   clampPosition() {
     const width = this.open ? (this.compact?72:144) : 76, height = this.open ? (this.compact?86:173) : 84;
     if(this.flying && !this.dragging) {
+      const hit=this.x<12 || this.x>this.mapPanel.clientWidth-width-12 || this.y<95 || this.y>this.mapPanel.clientHeight-height-12;
+      if(hit)sfx.bounce(Math.hypot(this.vx,this.vy));
       if(this.x<12 || this.x>this.mapPanel.clientWidth-width-12)this.vx*=-.8;
       if(this.y<95 || this.y>this.mapPanel.clientHeight-height-12)this.vy*=-.8;
     }
@@ -292,12 +295,14 @@ export class CapriCompanion {
 
   async typeReply(text, content) {
     this.talking = true;
+    sfx.play("confirm",{gain:.25});
     const duration = this.reducedMotion.matches ? 0 : Math.min(6500,Math.max(1100,text.length * 15));
     await new Promise(resolve => {
       const start = performance.now();
       const tick = now => {
         const progress = duration ? Math.min(1,(now-start)/duration) : 1;
         content.textContent = text.slice(0,Math.ceil(text.length*progress));
+        if(this.open)sfx.babble(content.textContent.slice(-1));
         this.messages.scrollTop = this.messages.scrollHeight;
         if (progress < 1) requestAnimationFrame(tick); else resolve();
       };

@@ -43,7 +43,7 @@ export class Timeline {
   queue(index) {this.pending=index;if(this.queued)return;this.queued=requestAnimationFrame(()=>{this.queued=null;this.show(this.pending);});}
   run() {
     this.play.textContent="Pause";this.play.setAttribute("aria-pressed","true");
-    this.timer=setTimeout(()=>{if(Number(this.slider.value)>=Number(this.slider.max)){this.pause();return;}this.show(Number(this.slider.value)+1);this.run();},1000);
+    this.timer=setTimeout(()=>{if(Number(this.slider.value)>=Number(this.slider.max)){this.pause();return;}this.show(Number(this.slider.value)+1);this.run();},750);
   }
   pause() {clearTimeout(this.timer);this.timer=null;this.play.textContent="Play";this.play.setAttribute("aria-pressed","false");}
 }

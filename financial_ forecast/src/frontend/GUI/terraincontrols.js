@@ -8,9 +8,86 @@ const NOTES = {
 };
 export const formatDensity = value => Math.round(value).toLocaleString() + " / km²";
 
+// Shared, cached audio stays with the existing GUI controls; no extra runtime.
+export const sfx = new class {
+  constructor() {
+    this.enabled=true;this.buffers={};this.last={};
+    try{this.enabled=localStorage.getItem("terrain.soundMuted")!=="true";}catch{}
+  }
+  bind() {
+    if(this.bound)return;
+    this.bound=true;this.toggle=document.querySelector("#sound-toggle");this.render();
+    this.toggle?.addEventListener("click",()=>{
+      this.enabled=!this.enabled;this.render();this.unlock();this.volume();
+      try{localStorage.setItem("terrain.soundMuted",String(!this.enabled));}catch{}
+      if(this.enabled)this.play("toggle");
+    });
+    for(const type of ["pointerdown","keydown"])document.addEventListener(type,event=>{if(event.isTrusted)this.unlock();},{capture:true});
+    document.addEventListener("click",event=>{
+      if(!event.isTrusted)return;
+      const target=event.target.closest("button,a[href],input[type=checkbox],summary,[role=button]");
+      if(!target || target.disabled || target===this.toggle)return;
+      this.play(target.matches("[aria-pressed],input[type=checkbox]")?"toggle":"click");
+    },true);
+    document.addEventListener("input",event=>{if(event.isTrusted && event.target.matches("input[type=range]"))this.play("tick",{gain:.2});});
+    document.addEventListener("visibilitychange",()=>this.volume());
+  }
+  render() {
+    if(!this.toggle)return;
+    this.toggle.textContent=this.enabled?"SFX ON":"SFX OFF";
+    this.toggle.setAttribute("aria-pressed",String(this.enabled));
+    this.toggle.setAttribute("aria-label",this.enabled?"Mute sound effects":"Enable sound effects");
+  }
+  unlock() {
+    if(!this.enabled)return;
+    try {
+      if(!this.context) {
+        const Audio=window.AudioContext || window.webkitAudioContext;if(!Audio)return;
+        this.context=new Audio({latencyHint:"interactive"});this.output=this.context.createGain();this.output.connect(this.context.destination);this.volume();
+        for(const name of ["click","toggle","confirm","bounce","tick"])
+          fetch(`/GUI/assets/sfx/${name}.wav`).then(response=>{if(!response.ok)throw new Error("Audio unavailable");return response.arrayBuffer();})
+            .then(data=>this.context.decodeAudioData(data)).then(buffer=>{this.buffers[name]=buffer;}).catch(()=>{});
+      }
+      if(this.context.state==="suspended")this.context.resume().catch(()=>{});
+    }catch{}
+  }
+  volume() {if(this.output)this.output.gain.value=(this.enabled && !this.recording && !document.hidden) ? .45 : 0;}
+  setRecording(recording) {this.recording=recording;this.volume();}
+  allowed() {return this.enabled && !this.recording && !document.hidden && this.context?.state==="running";}
+  play(name,{gain=.4,rate=1}={}) {
+    if(!this.allowed())return;
+    const now=this.context.currentTime;
+    if(now-(this.last[name]??-1)<(name==="bounce" ? .12 : .055))return;
+    this.last[name]=now;
+    if(!this.buffers[name]){this.tone(name==="bounce"?180:name==="confirm"?780:520,.035,.06);return;}
+    const source=this.context.createBufferSource(),level=this.context.createGain();
+    source.buffer=this.buffers[name];source.playbackRate.value=rate;level.gain.value=gain;
+    source.connect(level);level.connect(this.output);source.onended=()=>{source.disconnect();level.disconnect();};source.start();
+  }
+  tone(frequency,duration,gain) {
+    const now=this.context.currentTime,osc=this.context.createOscillator(),level=this.context.createGain();
+    osc.type="triangle";osc.frequency.setValueAtTime(frequency,now);osc.frequency.exponentialRampToValueAtTime(frequency*.7,now+duration);
+    level.gain.setValueAtTime(.0001,now);level.gain.exponentialRampToValueAtTime(gain,now+.004);level.gain.exponentialRampToValueAtTime(.0001,now+duration);
+    osc.connect(level);level.connect(this.output);osc.onended=()=>{osc.disconnect();level.disconnect();};osc.start();osc.stop(now+duration+.01);
+  }
+  bounce(speed) {if(speed>70)this.play("bounce",{gain:Math.min(.6,.15+speed/2500),rate:.8+Math.min(speed,1500)/2500});}
+  babble(character) {
+    if(!this.allowed() || !/[a-z0-9]/i.test(character))return;
+    const now=this.context.currentTime;if(now-(this.last.voice??-1)<.085)return;this.last.voice=now;
+    const code=character.toLowerCase().charCodeAt(0),pitch=290+(code%9)*34;
+    const osc=this.context.createOscillator(),level=this.context.createGain(),vowel=this.context.createBiquadFilter(),resonance=this.context.createBiquadFilter();
+    osc.type="sawtooth";osc.frequency.setValueAtTime(pitch,now);osc.frequency.exponentialRampToValueAtTime(pitch*.82,now+.065);
+    vowel.type=resonance.type="bandpass";vowel.frequency.value=400+(code%5)*110;vowel.Q.value=4;resonance.frequency.value=1400+(code%4)*240;resonance.Q.value=3;
+    level.gain.setValueAtTime(.0001,now);level.gain.exponentialRampToValueAtTime(.11,now+.008);level.gain.exponentialRampToValueAtTime(.0001,now+.065);
+    osc.connect(vowel);osc.connect(resonance);vowel.connect(level);resonance.connect(level);level.connect(this.output);
+    osc.onended=()=>{osc.disconnect();vowel.disconnect();resonance.disconnect();level.disconnect();};osc.start();osc.stop(now+.075);
+  }
+};
+
 // DOM controls live in GUI; the map and terrain renderer remain reusable.
 export class TerrainControls {
   constructor({ onChange, onOverlayChange = onChange, onZoom, onReset, onMode }) {
+    sfx.bind();
     this.layer = "terrain";
     this.mistEnabled = false;
     this.layerButtons = [...document.querySelectorAll(".layer-switch button")];

@@ -1,9 +1,11 @@
 // Hold to capture; release flushes the final words and sends exactly one message.
+import {sfx} from "../terraincontrols.js";
 export class VoiceInput {
   constructor(panel,{onQuestion,isBusy}) {
     Object.assign(this,{onQuestion,isBusy});
     panel.insertAdjacentHTML("beforeend",`<section class="capri-voice" aria-label="Capri voice"><button type="button" class="capri-mic" aria-pressed="false" aria-describedby="voice-status">Hold to speak to Capri</button><span id="voice-status" class="voice-status" role="status">Hold, speak, then release to send.</span></section>`);
     this.button=panel.querySelector(".capri-mic");this.status=panel.querySelector("#voice-status");
+    panel.querySelector(".map-hud")?.append(this.button.closest(".capri-voice"));
     this.supported=window.isSecureContext && !!navigator.mediaDevices?.getUserMedia && !!window.AudioWorkletNode;
     this.button.disabled=!this.supported;
     if(!this.supported)this.status.textContent="Voice requires a supported browser on localhost or HTTPS.";
@@ -19,6 +21,7 @@ export class VoiceInput {
   async start() {
     if(this.active || this.isBusy() || !this.supported)return;
     this.active=this.held=true;this.ready=false;this.parts=[];this.queue=[];
+    sfx.setRecording(true);
     const id=this.id=crypto.randomUUID().replaceAll("-","");
     this.controller=new AbortController();
     this.button.setAttribute("aria-pressed","true");this.button.textContent="Release to send";
@@ -69,7 +72,7 @@ export class VoiceInput {
     if(!this.ready){this.cancel();return;}
     const id=this.id;
     clearTimeout(this.limit);this.button.disabled=true;this.button.setAttribute("aria-pressed","false");this.button.classList.remove("is-listening");
-    this.status.textContent="Converting speech…";this.stream.getTracks().forEach(track=>track.stop());this.source.disconnect();
+    this.status.textContent="Converting speech…";this.stream.getTracks().forEach(track=>track.stop());this.source.disconnect();sfx.setRecording(false);
     try {
       await new Promise(resolve=>{this.flushed=resolve;this.node.port.postMessage("flush");this.flushTimer=setTimeout(resolve,1000);});
       clearTimeout(this.flushTimer);this.flushed=null;
@@ -90,6 +93,7 @@ export class VoiceInput {
     clearTimeout(this.limit);clearTimeout(this.flushTimer);this.flushed?.();this.flushed=null;
     this.controller.abort();this.queue=[];
     this.stream?.getTracks().forEach(track=>track.stop());this.node?.disconnect();this.context?.close().catch(()=>{});
+    sfx.setRecording(false);
     fetch("/api/capri/speech",{method:"DELETE",headers:{"X-Speech-Session":id},keepalive:true}).catch(()=>{});
     this.button.setAttribute("aria-pressed","false");this.button.classList.remove("is-listening");this.button.textContent="Hold to speak to Capri";
     this.button.disabled=this.isBusy() || !this.supported;this.status.textContent="Hold, speak, then release to send.";
