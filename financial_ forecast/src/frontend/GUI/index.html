@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CAPRICORN Financial Forecast</title>
-    <link rel="stylesheet" href="/GUI/styles.css?v=compact-keys-3" />
-    <link rel="stylesheet" href="/GUI/vegetation.css?v=black-key-1" />
+    <link rel="stylesheet" href="/GUI/styles.css?v=unified-legends-4" />
+    <link rel="stylesheet" href="/GUI/vegetation.css?v=unified-legends-4" />
   </head>
   <body>
     <main class="app-shell">
@@ -40,9 +40,9 @@
             <span><span id="density-missing" class="legend-missing" aria-hidden="true"></span>No data</span>
           </div>
         </div>
-        <div class="map-key vegetation-key compact-key" id="vegetation-key" aria-label="Employment rate legend" hidden>
+        <div class="map-key density-key compact-key" id="vegetation-key" aria-label="Employment rate legend" hidden>
           <span>Employment rate · lower → higher</span>
-          <div class="vegetation-ramp" role="img" aria-label="Employment rate, ages 16–64: light green below 65%, dark green 85% and above."></div>
+          <ul class="density-classes" aria-label="Employment rate, ages 16–64"><li><span class="swatch" style="background:var(--vegetation-colour-0)" aria-hidden="true"></span><span class="visually-hidden">Below 65%</span></li><li><span class="swatch" style="background:var(--vegetation-colour-1)" aria-hidden="true"></span><span class="visually-hidden">65–75%</span></li><li><span class="swatch" style="background:var(--vegetation-colour-2)" aria-hidden="true"></span><span class="visually-hidden">75–80%</span></li><li><span class="swatch" style="background:var(--vegetation-colour-3)" aria-hidden="true"></span><span class="visually-hidden">80–85%</span></li><li><span class="swatch" style="background:var(--vegetation-colour-4)" aria-hidden="true"></span><span class="visually-hidden">85% and above</span></li></ul>
           <div class="legend-range visually-hidden"><span>Below 65%</span><span>85%+</span></div>
           <div class="legend-footer key-scale visually-hidden">
             <span>Trees ≥85%</span>
