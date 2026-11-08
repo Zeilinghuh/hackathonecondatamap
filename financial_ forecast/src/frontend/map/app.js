@@ -9,7 +9,7 @@ import { Timeline } from "../GUI/timeline.js";
 import { VegetationLayer, vegetationState } from "./vegetation.js";
 
 const canvas=document.querySelector("#map"), panel=document.querySelector(".map-panel");
-const loading=document.querySelector("#loading"), explain=document.querySelector("#explain-area");
+const loading=document.querySelector("#loading");
 let texture,renderer,navigation,interaction,selection,selectedPosition,timeline,terrainData,areaMenu,vegetation,employmentYear,framePending=false;
 const controls=new TerrainControls({
   onChange:()=>{areaMenu?.reset();timeline?.useSurface();interaction?.invalidate();if(selection)showArea(selection,selectedPosition);requestDraw();},

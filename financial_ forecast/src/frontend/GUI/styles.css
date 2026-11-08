@@ -71,7 +71,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .loading.hidden { display: none; }
 .map-key { position: absolute; left: 24px; bottom: 24px; width: 220px; padding: 12px; display: grid; gap: 8px; font-size: 10px; color: #cbd8e7; background: #0b1018d9; border-left: 2px solid var(--cyan); pointer-events: none; }
 .map-key.compact-key { width: 190px; padding: 8px; gap: 4px; }
-.compact-key .density-classes, .compact-key .vegetation-ramp, .compact-key .mist-gradient { height: 8px; }
+.compact-key .density-classes, .compact-key .mist-gradient { height: 8px; }
 .gradient { height: 10px; border: 1px solid #75849a; }
 .controls-panel { position: relative; width: 320px; min-width: 0; padding: 34px 25px 24px; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; }
 h1 { margin: 0; color: var(--text); font-family: Arcade, monospace; font-size: 24px; line-height: 1.65; }

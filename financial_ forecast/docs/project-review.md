@@ -1,88 +1,51 @@
-# Project review — 7 November 2026
+# Code and packaging review — 8 November 2026
 
-## Current organisation — 8 November 2026
+## Scope and organisation
 
-Supersedes the earlier wake-word notes below: Capri frontend UI/helpers and area actions are consolidated in `GUI/capri/capri.js`, with push-to-talk in `voice.js` and the required audio worklet beside it. Removed the wake matcher, browser recognition fallback, obsolete wake-word test and replacement reaction asset. Original sprite artwork, draggable chat, momentum and idle behaviour remain. Speech runs only during a button hold and flushes its final transcript on release. Vegetation and business-death changes are preserved. Added tooling/report/editor leftovers to `.gitignore`. No tests were run for this change, as requested.
+Static review of first-party backend/frontend source, the frontend import graph,
+Python dependency imports, source hashes, packaging and module guides. No tests
+were run during this cleanup. Vendored RichDEM/Earcut are dependencies with their
+own licences; their internals were not rewritten.
 
-## Follow-up — 8 November 2026
+The current layout is appropriate: native data/terrain work in `src/backend/terrain`,
+HTTP/cache adapters under `src/backend`, chat/transcription in `src/backend/capri`,
+map rendering under `src/frontend/map`, and controls/companion UI under
+`src/frontend/GUI`. The audio worklet is a separate browser execution context and
+belongs beside push-to-talk. No runtime files were moved or split.
 
-Checked first-party source hashes and the frontend import graph: no identical source files, missing imports or unused modules. `voiceprocessor.js` is a separate AudioWorklet entry loaded by `localrecognition.js`. Kept vendored RichDEM/Earcut, their licenses, source assets and original planning notes. Kept the offline indicator analysis scripts, which serve different research purposes; consolidated their duplicated workbook-reading code into `dataset.py`. Before/after data comparison matches all 689 source-area observations across six indicators. The current indicators have too few complete local-authority rows for regression, so the script now reports that limitation cleanly. Analysis dependencies are an optional uv extra.
+The root `pyproject.toml` and `uv.lock` describe the app. Default map/typed-chat
+runtime needs no third-party Python packages; `voice` and `analysis` are optional
+extras. Node is used for existing frontend checks, not production bundling.
+The repository-root `.gitignore` covers root and nested environments, credentials,
+generated products, logs, editor artefacts and reports. Existing local log files
+are retained on disk but excluded from future commits.
 
-Removed stale sidebar explanation references, unused busy events, mischief toggle state/styles and the old decorative reaction overlay. Companion animation shares frame lists, caps visual updates at 30 Hz and stops its animation loop in hidden tabs. GPU terrain buffers and camera rendering remain shared between views.
+## Findings and changes
 
-The browser's cloud speech service failed a generated-audio check. Added optional offline native Vosk recognition behind the existing web server, with one lazily loaded model, bounded audio uploads and expiring/released sessions. Recognition status now distinguishes startup from confirmed capture, shows the heard transcript and accepts the phonetic Capri variants found in real transcription. The optional voice extra and ignored model setup are documented in README and `docs/capri.md`.
+- No identical first-party source files or missing/unreachable frontend modules
+  were found. The worklet is explicitly loaded by the voice capture code.
+- Consolidated repeated texture allocation, filtering and size-limited uploads
+  inside the existing renderer. Creation, year updates and playback reuse these
+  helpers and the same upload canvas.
+- Removed shader switches/uniforms for the superseded flat employment contour
+  pass; current employment uses its own raised mesh and the shared contour shader.
+- Employment raster colours now reuse the same band classification as tree
+  eligibility, rather than maintaining a second copy of the thresholds.
+- Removed the unused sidebar explanation reference and obsolete employment-legend
+  styling. Current legends continue to use their shared markup and stylesheet.
+- Corrected outdated documentation about flat employment rendering, borrowed
+  income contours, wake-word recognition and playback timing.
 
-Focused verification: wake-phrase regressions; speech session validation, limits and expiry; browser fallback setup and UI; new reaction sprite rendering; permanent 12–22-second idle timing; and a complete generated-audio → real offline transcription → wake → chat → auto-send flow. Muting released the generated audio track and stopped uploads. Chat was mocked for these checks, so no paid provider requests were required.
+## Retained intentionally
 
-Reviewed first-party backend/frontend, data flow, tests, uv and Git/LFS setup.
-RichDEM and installed packages remain dependencies; their internals were not
-comprehensively audited or rewritten.
+`matrixcoefffitting` contains offline research scripts and experimental simulation
+workbooks; these are not imported by the running app. The correlation/regression
+entry points share `dataset.py`; newer experiments have different modelling
+assumptions and were not merged into production or treated as equivalent code.
+Original source data, the root LAD boundary file, planning notes, sprites, sound
+licences and third-party sources remain available. Ignored native caches and
+voice model weights are generated/local products, not source replacements.
 
-## Current cleanup
-
-Native terrain code is under `src/backend/terrain/`. The web server and native
-adapter are separate under `src/backend/`. Tests moved out of runtime source
-into `tests/backend/` and `tests/frontend/`. Module guides/review moved to
-`docs/`, original planning documents to `docs/planning/`, and generated products
-to ignored `build/terrain/`. The obsolete `terrainGen` folder and old bytecode
-were removed. Planning content, source assets and Capri art are preserved.
-
-The remaining Python is required: it serves the local app, manages the native
-build/cache, unpacks XLSX ZIP entries and makes Capri HTTPS requests. C++ owns
-workbook-record parsing, GeoJSON parsing, authority matching, simplification,
-income interpolation, RichDEM analysis and terrain JSON generation.
-
-## Rendering changes
-
-2D and 3D now share one GPU canvas and contour shader. Static terrain, textures,
-boundary instances and all highlight triangles are uploaded once. The CPU
-Canvas contour draw loop and duplicate renderer/canvas are removed.
-
-Terrain-off boundaries are screen-width GPU strokes. Hover shows a cyan
-fill/outline with a fading pulse; leaving fades it out. Selection retains a
-quieter outline. Reduced-motion users get steady highlights. The map stops
-requesting frames when idle.
-
-The selected-area panel includes **Ask Capri to explain**. Clicking opens chat
-and submits the selected authority code; the server resolves verified income
-facts. Hovering/selection alone sends no AI request. Existing chat, sprite
-animation and API-key handling are preserved.
-
-## Local evidence
-
-Edge headless, 1440 × 960, 60 wheel-driven updates per view:
-
-| View | 95th-percentile main-thread drawing work |
-| --- | ---: |
-| 2D terrain | 0.5 ms |
-| 3D terrain | 0.2 ms |
-| Terrain-off borders | 0.3 ms |
-
-The same browser check recorded **zero Canvas strokes** during interaction and
-unchanged **five buffer uploads / three texture uploads** across pan, zoom, mode
-changes, hover and selection. All highlight geometry is prepared up front.
-
-These measurements cover main-thread work, not guaranteed GPU frame rates.
-Earlier native product preparation measured about 3.3 seconds without compiler
-work, cached product loading 0.17 seconds, and the gzip response about 1.98 MB.
-
-## Validation and limits
-
-All 24 automated tests and Ruff pass. Browser checks also cover 3D hover,
-reduced-motion idle behavior, graphics-context recovery, the non-instanced
-border fallback and touch pinch.
-
-Checks cover native DEM/slope invariants, workbook tab/year selection, geometry
-reduction, indexed chat context, cache invalidation/corruption, HTTP compression
-and ETags, camera bounds/projection/picking, and highlight holes/islands.
-
-Browser checks cover GPU reuse, visible borders/contours, hover fade/pulse,
-selection, correct authority sent to Capri, no AI request on hover, idle frame
-stopping, 2D/3D switching, zoom and responsive layout. Provider calls are mocked
-for these checks.
-
-The same 361/382 authorities match the income source. Missing special-authority
-income remains unshaded. The 200 × 320 grid and simplified display boundaries
-limit precision; they are not survey geometry or physical altitude. No weather
-model was introduced. Vendored Earcut includes its original license and pinned
-source provenance.
+The root README is the current run/setup guide. `terrain.md` and `capri.md`
+describe the active rendering and companion paths; planning documents are original
+project notes rather than a specification of current behaviour.

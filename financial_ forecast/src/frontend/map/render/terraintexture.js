@@ -1,4 +1,5 @@
 import { mercator } from "../terrainmath.js";
+import { vegetationBand } from "../vegetation.js";
 
 // Discrete scientific rainbow scale, low to high, matching the contour reference.
 export const CONTOUR_COLOURS = [
@@ -71,9 +72,7 @@ export class TerrainTexture {
     }
     this.employmentDem={...dem,values};
     const mask=this.landMask(this.areas.areas.filter(a=>Number.isFinite(observations[a.feature.properties.authority_code])).map(a=>a.feature));
-    const breaks=[65,75,80,85],image=this.rasterise(this.employmentDem,value=>{
-      const band=breaks.findIndex(limit=>50+value*.045<limit);return palette[band<0?4:band].slice(0,3);
-    });
+    const image=this.rasterise(this.employmentDem,value=>palette[vegetationBand(50+value*.045)].slice(0,3));
     this.employmentTerrain??=document.createElement("canvas");
     const canvas=this.employmentTerrain;canvas.width=this.base.width;canvas.height=this.base.height;
     const context=canvas.getContext("2d");

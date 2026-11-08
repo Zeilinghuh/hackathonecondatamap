@@ -20,7 +20,7 @@ http://127.0.0.1:8000. The root README includes uv commands.
 | `src/frontend/map/render/terraintexture.js` | Colour raster, land mask and static fill textures |
 | `src/frontend/map/terrainmath.js` | Projection, mesh and ray/triangle math |
 
-There is one native executable, one data product and one browser GPU renderer.
+There is one native executable, cached terrain/history products and one browser GPU renderer.
 The old CPU contour renderer and second map canvas are removed. Python files
 are active adapters, not duplicate terrain implementations.
 
@@ -107,7 +107,7 @@ upload geometry during interaction.
 
 Hover fades/pulses cyan, then fades out on leave. Selected areas retain a quieter
 outline. Reduced-motion preferences disable pulsing. The map stops scheduling
-frames when idle; hovering never requests AI. **Ask Capri to explain** explicitly
+frames when idle; hovering never requests AI. **Explain this area** explicitly
 submits the selected authority's code with a chat message.
 
 The browser needs WebGL and standard shader derivatives for these views.
@@ -118,16 +118,16 @@ Earcut's source/license are under `render/vendor/`; no CDN or runtime network
 dependency is added.
 
 Drag/arrows pan; Shift-drag or Shift-arrow rotates in 3D. Scroll/+/-,
-pinch and UK view/0 zoom/reset. Right-click an area for Capri explanations, local comparisons and future simulation actions. Ask Capri brings the orb over with a dismissible speech bubble; Explain this area opens chat and requests an explanation directly. Hold the bottom-left Speak to Capri button and release to transcribe and send a voice question. A sparse, dim sea grid provides a camera-aligned reference in 3D. Zoom stays 1–12×. 2D locks a fitted axis; the 3D
+pinch and UK view/0 zoom/reset. Right-click an area for Capri explanations, local comparisons and future simulation actions. Ask Capri brings the orb over with a dismissible speech bubble; Explain this area opens chat and requests an explanation directly. Hold the bottom-left Speak to Capri button and release to transcribe and send a voice question. A sparse, dim sea grid provides a camera-aligned reference in both 2D and 3D. Zoom stays 1–12×. 2D locks a fitted axis; the 3D
 camera target can move inside the UK bounds even at fit zoom. Neither view allows
 unbounded panning. Pixel density is capped at 2×.
 
 The native grid still limits income detail. Land colour textures can soften at
 extreme zoom; GPU contour and boundary strokes remain screen-width sharp.
 
-## Employment vegetation
+## Employment rate
 
-Choose **VEGETATION**, then use **Data year** or **Play** to change the green
+Choose **Employment rate**, then use **Data year** or **Play** to change the green
 landscape through recorded years. Select an authority to see its employment
 rate and change against the previous calendar year, in percentage points.
 
@@ -146,22 +146,20 @@ missing; it is never substituted with zero or a different earlier year.
 
 [vegetation.css](../src/frontend/GUI/vegetation.css) defines the green map palette
 and draws the small trees with CSS gradients, rounded shapes and pseudo-elements.
-Authority fills use a fixed sequential scale with breaks at 65%, 75%, 80% and
-85%; darker green means higher employment. Missing data stays pale grey.
-These are employment metaphors, not measured land cover or a causal claim.
+Employment shares the existing 2D/3D terrain renderer. On a fixed 50–95% height
+scale, a small inverse-distance field is bilinearly expanded onto the common
+GPU grid. Green colour classes use the same 65%, 75%, 80% and 85% breaks as the
+marker eligibility logic in `map/vegetation.js`. Areas without observations
+retain the base no-data colour. Heights are synthetic, not geographic altitude
+or measured land cover.
 
-The existing GPU area geometry draws all green fills in one call, preserving
-sharp borders and holes. An authority colour lookup texture (512 × 1 RGBA
-pixels for the current data) changes only when the selected year changes.
-Camera movement does not repaint paths or upload data. No extra canvas or
-plant image assets are added.
+The employment mesh, colour texture and contour mask update when the year changes.
+Camera movement reuses GPU resources; tree anchors sample the displayed employment
+height in 3D. All views share the dark sea and sparse grid. During Play, the
+renderer blends previous/current heights, normals, colours and masks over 550 ms
+inside each 650 ms step. Manual year changes and Pause settle immediately on the
+recorded frame, and reduced-motion mode skips interpolation.
 
-The map background is black. Vegetation keeps its flat green employment surface
-and adds dark green terrain-height contours beneath borders and highlights.
-The contour pass reuses the currently loaded income mesh, land mask and GPU
-buffers; employment-year changes affect the green fills and trees. Contours
-describe income-based landscape height. In 3D the same plane tilts while CSS
-trees remain upright and follow pan, zoom and rotation.
 Decorative trees are restricted to employment rates of **85%+**. Stable anchors
 reuse Earcut triangles and respect holes and islands. A reusable pool holds at
 most **48** CSS tree elements, with no more than **28** shown on desktop or
