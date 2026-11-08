@@ -509,6 +509,14 @@ class ForecastService:
             "coverage": data["coverage"],
             "scenario": data["inputs"],
             "rate_signal": data["rate"][yi],
+            "national_summary": {
+                v: values[yi] for v, values in data["national"].items()
+            },
+            "summary_definition": "Unweighted modelled-authority means; FDI sums regional/country totals.",
+            "growth_feedback_matrix": data["matrix"],
+            "units": {
+                v: definition["unit"] for v, definition in data["variables"].items()
+            },
         }
         selected = facts.get("selected_authority")
         if selected:
@@ -537,6 +545,28 @@ class ForecastService:
                     data["values"][variable][index][yi] if index is not None else None
                 )
             if index is not None:
+                baseline = json.loads(self.response()[0])
+                area["calculated_series"] = {
+                    v: {
+                        "years": data["years"],
+                        "scenario": values[index],
+                        "baseline": baseline["values"][v][index],
+                    }
+                    for v, values in data["values"].items()
+                }
+                area["scenario_effect"] = {}
+                for variable, values in data["values"].items():
+                    value, base = (
+                        values[index][yi],
+                        baseline["values"][variable][index][yi],
+                    )
+                    if value is not None and base is not None:
+                        area["scenario_effect"][variable] = {
+                            "difference": round(value - base, 3),
+                            "percent": round((value / base - 1) * 100, 3)
+                            if base
+                            else None,
+                        }
                 region = next(
                     r
                     for r in data["regions"]

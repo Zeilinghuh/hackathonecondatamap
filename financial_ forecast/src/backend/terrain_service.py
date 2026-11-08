@@ -327,3 +327,28 @@ class TerrainStore:
             a["authority_name"].removesuffix(" LPA")
             for a in self._facts["authorities"].values()
         )
+
+    def resolve_authority(self, query):
+        self.response()
+        normalise = lambda name: (
+            "".join(c for c in name.lower() if c.isalnum())
+            .replace("cityof", "")
+            .removesuffix("lpa")
+        )
+        key = normalise(query)
+        if query in self._facts["authorities"]:
+            return query
+        matches = [
+            code
+            for code, a in self._facts["authorities"].items()
+            if normalise(a["authority_name"]) == key
+        ]
+        if not matches and len(key) >= 3:
+            matches = [
+                code
+                for code, a in self._facts["authorities"].items()
+                if key in normalise(a["authority_name"])
+            ]
+        if len(matches) != 1:
+            raise ValueError("Choose one unambiguous local authority name.")
+        return matches[0]

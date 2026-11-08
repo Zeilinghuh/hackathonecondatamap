@@ -242,7 +242,31 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
                     facts, payload.get("selected_year"), **scenario
                 )
             facts["available_authorities"] = TERRAIN.authority_names()
-            self.send_json(CAPRI.reply(payload, facts))
+
+            def lookup_data(authority=None, year=None):
+                if authority is not None and (
+                    not isinstance(authority, str) or not 0 < len(authority) <= 120
+                ):
+                    raise ValueError("Invalid authority name.")
+                selected = (
+                    TERRAIN.resolve_authority(authority)
+                    if authority
+                    else payload.get("selected_authority")
+                )
+                chosen = year if year is not None else payload.get("selected_year")
+                if chosen is not None and (
+                    isinstance(chosen, bool)
+                    or not str(chosen).isdigit()
+                    or not 1991 <= int(chosen) <= 2035
+                ):
+                    raise ValueError("Choose an available year between 1991 and 2035.")
+                if chosen is not None and int(chosen) >= 2026:
+                    return FORECAST.context(
+                        TERRAIN.context(selected), chosen, **(scenario or {})
+                    )
+                return TERRAIN.context(selected, chosen)
+
+            self.send_json(CAPRI.reply(payload, facts, lookup_data))
         except CapriError as error:
             self.send_json({"error": str(error)}, HTTPStatus(error.status))
         except (ValueError, UnicodeError):

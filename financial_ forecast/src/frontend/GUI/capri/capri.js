@@ -2,12 +2,23 @@
 import {VoiceInput} from "./voice.js";
 import {sfx} from "../terraincontrols.js";
 const FRAMES={orb:[0,1,2,3],idle:[0,0,0,3],talking:[1,2,1,0]};
+const HISTORY_KEY='capri.history.v1';
+function recentHistory(entries) {
+  const result=[];let size=0;
+  for(const entry of (Array.isArray(entries)?entries:[]).slice(-40).reverse()){
+    if(!entry||!['user','assistant'].includes(entry.role)||typeof entry.content!=='string'||!entry.content.trim()||entry.content.length>4000)continue;
+    if(result.length>=12||size+entry.content.length>14000)break;
+    result.unshift({role:entry.role,content:entry.content});size+=entry.content.length;
+  }
+  return result;
+}
 export class CapriCompanion {
   constructor(mapPanel) {
     this.mapPanel = mapPanel;
     this.open = false;
     this.busy = false;
     this.history = [];
+    try{this.history=recentHistory(JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'));}catch{}
     this.selectedAuthority = null;
     this.x = 0;
     this.y = 0;
@@ -49,7 +60,8 @@ export class CapriCompanion {
     this.speech=mapPanel.querySelector(".capri-bubble");
     this.speech.querySelector(".bubble-close").addEventListener("click",()=>this.dismissBubble());
     this.speech.querySelector(".bubble-talk").addEventListener("click",()=>{const action=this.speechAction;this.dismissBubble();if(action)action();else this.setOpen(true);});
-    this.appendMessage("assistant", "Hey, I'm Capri. Try ‘find Barnet in 2019’, ‘show employment in 3D’ or ask me to edit a simulation. Hold Speak to Capri to talk.");
+    if(this.history.length)for(const entry of this.history)this.appendMessage(entry.role,entry.content);
+    else this.appendMessage("assistant", "Hey, I'm Capri. Try ‘find Barnet in 2019’, ‘show employment in 3D’ or ask me to edit a simulation. Hold Speak to Capri to talk.");
     this.button.addEventListener("click", () => {
       if (this.dragged) { this.dragged = false; return; }
       this.setOpen(!this.open);
@@ -329,7 +341,7 @@ export class CapriCompanion {
       else {
       const response = await fetch("/api/capri/chat", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({message, history:this.history.slice(-8), selected_authority:this.selectedAuthority, selected_year:this.selectedYear, app_state:this.actions?.state(),scenario:this.actions?.forecast.enabled?this.actions.forecast.appliedInputs:null}),
+        body:JSON.stringify({message, history:recentHistory(this.history), selected_authority:this.selectedAuthority, selected_year:this.selectedYear, app_state:this.actions?.state(),scenario:this.actions?.forecast.enabled?this.actions.forecast.appliedInputs:null}),
         signal:AbortSignal.timeout(70000),
       });
       const result = await response.json();
@@ -341,7 +353,8 @@ export class CapriCompanion {
       pending.content.textContent = "";
       await this.typeReply(reply, pending.content);
       this.history.push({role:"user",content:message},{role:"assistant",content:reply});
-      this.history = this.history.slice(-8);
+      this.history = recentHistory(this.history);
+      try{localStorage.setItem(HISTORY_KEY,JSON.stringify(this.history));}catch{}
       this.status.textContent = "Link ready · Just us and the map";
     } catch (error) {
       pending.element.classList.remove("pending");

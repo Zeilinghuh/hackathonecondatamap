@@ -53,7 +53,7 @@ simulation mode and year are applied through the same controls.
 Only a submitted message triggers a provider request. The provider receives
 the message, recent conversation and a small verified map summary, including
 the selected authority's economic observation when available. Source files and
-credentials are not included. History lives only in the current browser page.
+credentials are not included. Recent chat is stored in this browser’s local storage and restored after refresh/reopening. Up to 12 recent messages within a 14,000-character budget are sent for context. Clearing browser site data removes the saved chat.
 Errors and provider timeouts appear in chat and allow retrying.
 
 Provider documentation:
@@ -72,3 +72,5 @@ python -m unittest discover -s tests/backend -p test_capri.py
 ```
 
 Requested app operations use validated control calls, including explicit recorded/simulation mode switching and visible scenario edits. Camera focus runs after the requested layer, year and mode are applied, with an eased pan/zoom to the actual raised 3D position. User input cancels a flight. Manual year scrubbing and scenario edits retarget the shared terrain animation. Apply was removed because scenario controls auto-apply.
+
+Capri can call the server-side lookup_data tool for another authority/year without changing the map. Simulation context includes calculated per-area series, no-shock baselines, absolute/percentage scenario differences, units, the feedback matrix and labelled national summaries. Lookups use server-generated data, never client-supplied numeric claims; unavailable observations remain missing.
