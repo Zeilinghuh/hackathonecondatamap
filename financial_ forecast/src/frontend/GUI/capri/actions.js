@@ -40,19 +40,23 @@ export class AppActions {
     this.onSelect(area,[x,latitudeAt(z)]);this.navigation.focus(b);return area;
   }
   plan(message) {
-    const text=message.toLowerCase().trim();if(/\b(?:don'?t|do not|never)\b/.test(text))return null;
+    const text=message.toLowerCase().trim().replace(/^(?:hey[\s,]+)?capri[\s,:-]*/,'').replace(/^(?:can|could|would|will)\s+you\s+(?:please\s+)?/,'');if(/\b(?:don'?t|do not|never)\b/.test(text))return null;
     // Parameter edits need the model's structured action; a layer-name match
     // must not consume an instruction such as "set income growth in Barnet".
     if(/\b(?:shock|growth|stance|increase|decrease|boost|raise|lower|standard deviations?)\b/.test(text))return null;
     const result=[];
     const year=text.match(/\b(19\d{2}|20\d{2})\b/);
     if(new Set(text.match(/\b(?:19\d{2}|20\d{2})\b/g)||[]).size>1)return null;
-    const area=this.areas.areas.filter(a=>{
+    let area=this.areas.areas.filter(a=>{
       const name=a.feature.properties.authority_name.toLowerCase().replace(/ lpa$/,'').replace(/^city of /,'');
       return name.length>=3&&new RegExp('\\b'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b').test(text);
     }).sort((a,b)=>b.feature.properties.authority_name.length-a.feature.properties.authority_name.length)[0];
+    if(!area) {
+      const place=text.match(/\b(?:in|for|at|to)\s+([a-z][a-z '&.-]+?)(?=\s+(?:in|for|during|by)\s+(?:the\s+year\s+)?(?:19|20)\d{2}\b|[?.!,]?$)/);
+      if(place)try{area=this.find(place[1].trim());}catch{return null;}
+    }
     if(!area&&/\b(?:find|focus|take me|go to|select)\b/.test(text)&&! /^(?:please\s+)?(?:go to|select)\s+(?:the\s+)?(?:year\s+)?\d{4}[.!?]?$/.test(text))return null;
-    const control=/^(?:please\s+)?(?:find|show|go to|focus|select|take me|switch|change|set|enable|disable|turn|hide|open|close|play|pause|stop|zoom|reset|mute|unmute|start|return|use)\b/.test(text);
+    const control=/^(?:please\s+)?(?:simulate|forecast|project|find|show|go to|focus|select|take me|switch|change|set|enable|disable|turn|hide|open|close|play|pause|stop|zoom|reset|mute|unmute|start|return|use)\b/.test(text);
     if(area&&(control||year))result.push({type:'select_area',target:area.feature.properties.authority_name});
     if(!control&&!result.length)return null;
     if(/\b(?:recorded|historical)\b/.test(text))result.push({type:'set_simulation',enabled:false});
@@ -108,6 +112,6 @@ export class AppActions {
     const state=this.state(),p=this.getSelected()?.feature.properties;
     let text=(state.simulation?'Simulated ':'Recorded ')+(state.year||'latest')+' · '+(VARIABLES[state.layer]||'Area boundaries')+' · '+state.view.toUpperCase()+'.';
     if(p){text+=' '+p.authority_name.replace(/ LPA$/,'')+': ';const values=[['Income per head',p.income_per_head,'£',''],['Population density',p.population_density,'',' / km²'],['Employment rate',p.employment_rate,'','%']];text+=values.map(([label,value,prefix,suffix])=>label+' '+(Number.isFinite(value)?prefix+value.toLocaleString(undefined,{maximumFractionDigits:suffix==='%'?1:0})+suffix:'unavailable')).join('; ')+'.';}
-    if(state.simulation)text+=' Exploratory scenario, not a prediction.';return text;
+    if(state.simulation){const model=p&&this.forecast.data?.areas[this.forecast.byCode?.get(p.authority_code)];if(model?.estimated_inputs?.length)text+=' Estimated starting growth/input: '+model.estimated_inputs.map(v=>VARIABLES[v]).join(', ')+'.';text+=' Exploratory scenario, not a prediction.';}return text;
   }
 }

@@ -1,7 +1,6 @@
 """Forecast service for the UK economic-terrain map.
 
-Place next to server.py (src/backend/). It reads assets/data/all-datasets.xlsx once
-(in a background thread), fits the Pearson growth matrix, and can re-run the damped
+It reads assets/data/all-datasets.xlsx once on first use, fits the Pearson growth matrix, and can re-run the damped
 iteration in milliseconds, so the browser can apply "what if" shocks.
 
 Variables: income (sheet 16), weeklypay (17), fdi (26, regional), deaths (32),
@@ -75,6 +74,9 @@ REGIONS = {  # code: (name, lat, lon)
     "E12000007": ("London", 51.50, -0.12),
     "E12000008": ("South East", 51.25, -0.85),
     "E12000009": ("South West", 50.95, -3.45),
+    "S92000003": ("Scotland", 56.8, -4.2),
+    "W92000004": ("Wales", 52.3, -3.7),
+    "N92000002": ("Northern Ireland", 54.7, -6.7),
 }
 
 # ------------------------- LAD -> region lookup ------------------------------
@@ -120,6 +122,9 @@ def lad_to_region(code: str) -> str | None:
     if not isinstance(code, str) or len(code) != 9 or not code[3:].isdigit():
         return None
     p, n = code[:3], int(code[3:])
+    country = {"S12": "S92000003", "W06": "W92000004", "N09": "N92000002"}
+    if p in country:
+        return country[p]
     if p == "E09":
         return _N["LON"]
     if p == "E06":
@@ -184,7 +189,7 @@ def validate_inputs(shocks=None, rate_bias=0.0, area_shocks=None):
     local = {}
     for code, values in area_shocks.items():
         if not isinstance(code, str) or lad_to_region(code) is None:
-            raise ValueError("Unknown English authority code in scenario.")
+            raise ValueError("Unknown UK authority code in scenario.")
         if clean := edits(values):
             local[code] = clean
     return edits({} if shocks is None else shocks), number(rate_bias, 1), local
@@ -208,6 +213,11 @@ class ForecastService:
                 for sheet, v in SHEETS.items():
                     raw[v], nm = _load_keyed(workbook, sheet)
                     names.update(nm)
+                # Northern Ireland's employment observations are a separate table.
+                if "12" in workbook.sheet_names:
+                    ni, nm = _load_keyed(workbook, "12")
+                    raw["employment"] = raw["employment"].combine_first(ni)
+                    names.update(nm)
             display = {v: d.copy() for v, d in raw.items()}  # full history for the map
             raw["deaths"] = raw["deaths"].loc[
                 :, [c for c in raw["deaths"].columns if c >= POST_COVID_FROM]
@@ -219,7 +229,7 @@ class ForecastService:
                     for v, d in raw.items()
                     if v != "fdi"
                     for c in d.index
-                    if c[:3] in ("E06", "E07", "E08", "E09")
+                    if c[:3] in ("E06", "E07", "E08", "E09", "S12", "W06", "N09")
                 }
             )
             region_of = pd.Series({c: lad_to_region(c) for c in lads})
@@ -277,9 +287,24 @@ class ForecastService:
 
             L0 = pd.DataFrame({v: last_real(levels[v], observed[v]) for v in VARS})
             G0 = pd.DataFrame({v: last_real(growth[v], valid[v]) for v in VARS})
-            Z0 = (G0 - mu) / sigma.replace(0, 1)
-            keep = L0.notna().all(axis=1) & Z0.notna().all(axis=1)
-            L0, Z0 = L0[keep], Z0[keep].clip(-3, 3)
+            # A single missing auxiliary series must not blank an area's observed
+            # income/density. Missing growth starts at the model mean (zero z).
+            # Missing levels are internal regional-median assumptions, never
+            # published as that authority's observed or projected measurement.
+            keep = L0[["income", "density"]].notna().all(axis=1) & region_of.notna()
+            L0, G0 = L0[keep], G0[keep]
+            available = L0.notna()
+            estimated_inputs = {
+                c: [v for v in VARS if pd.isna(L0.at[c, v]) or pd.isna(G0.at[c, v])]
+                for c in L0.index
+            }
+            local_regions = region_of.reindex(L0.index)
+            L0 = (
+                L0.fillna(L0.groupby(local_regions).transform("median"))
+                .fillna(L0.median())
+                .fillna(0)
+            )
+            Z0 = ((G0 - mu) / sigma.replace(0, 1)).fillna(0).clip(-3, 3)
             if L0.empty:
                 raise ValueError(
                     "The workbook has no authorities with sufficient simulation data."
@@ -309,9 +334,13 @@ class ForecastService:
                 "hist_years": hist_years,
                 "region_hist": region_hist.to_numpy(),
                 "rate_pairs": n.astype(int).tolist(),
+                "available": available[VARS].to_numpy(),
+                "estimated_inputs": estimated_inputs,
                 "source_years": {
                     v: [
                         int(levels[v].columns[observed[v].loc[c].to_numpy()].max())
+                        if observed[v].loc[c].any()
+                        else None
                         for c in L0.index
                     ]
                     for v in VARS
@@ -371,7 +400,10 @@ class ForecastService:
         )
         values, national = {}, {}
         for j, v in enumerate(VARS):
-            full = np.concatenate([s["hist"][v], proj[j]], axis=1)
+            full = np.concatenate(
+                [s["hist"][v], np.where(s["available"][:, j, None], proj[j], np.nan)],
+                axis=1,
+            )
             with warnings.catch_warnings():
                 warnings.simplefilter(
                     "ignore", RuntimeWarning
@@ -424,7 +456,12 @@ class ForecastService:
                 for v in VARS
             },
             "areas": [
-                {"code": c, "name": n, "region": r}
+                {
+                    "code": c,
+                    "name": n,
+                    "region": r,
+                    "estimated_inputs": s["estimated_inputs"][c],
+                }
                 for c, n, r in zip(s["codes"], s["names"], s["regions"])
             ],
             "values": values,
@@ -451,8 +488,8 @@ class ForecastService:
                 "area_shocks": area_shocks,
             },
             "source_years": s["source_years"],
-            "coverage": "English local authorities with complete model inputs; FDI is regional. Other UK areas are unavailable in simulation mode.",
-            "model_note": "Exploratory correlation model, not a validated economic prediction. Shocks are growth standard deviations, fading by 0.6 each year. Latest available observations seed 2026, with different source years. Means are unweighted authority averages; FDI is a regional total. Rate signal is dimensionless, not an actual interest rate.",
+            "coverage": f"{len(s['codes'])} UK local authorities with observed income and density inputs, including Scotland, Wales and Northern Ireland. Special planning authorities without source observations stay unavailable; FDI is regional or country-level.",
+            "model_note": "Exploratory correlation model, not a validated economic prediction. Shocks are growth standard deviations, fading by 0.6 each year. Latest available observations seed 2026, with different source years. Where growth history is absent, the model starts at average growth (zero standardised growth); missing auxiliary levels use an internal regional median but that metric's output remains unavailable. Such inputs are listed per area. Recorded history is never filled. Means are unweighted authority averages; FDI is a regional/country total. Rate signal is dimensionless, not an actual interest rate.",
         }
 
     def context(self, facts, year, shocks=None, rate_bias=0.0, area_shocks=None):
@@ -509,6 +546,7 @@ class ForecastService:
                 area["input_source_years"] = {
                     v: years[index] for v, years in data["source_years"].items()
                 }
+                area["estimated_inputs"] = data["areas"][index]["estimated_inputs"]
             result["selected_authority"] = area
         return result
 

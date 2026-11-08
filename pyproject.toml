@@ -11,7 +11,7 @@ dependencies = ["numpy>=1.26", "pandas>=2.2", "openpyxl>=3.1"]
 
 [project.optional-dependencies]
 analysis = []
-voice = ["vosk>=0.3.45"]
+voice = ["faster-whisper>=1.2", "vosk>=0.3.45"]
 
 [dependency-groups]
 dev = [

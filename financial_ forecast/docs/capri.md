@@ -13,7 +13,7 @@ The frontend is grouped under `src/frontend/GUI/capri/`:
 - `voice.js`: push-to-talk capture and submission.
 - `voiceprocessor.js`: the separate browser AudioWorklet, converting audio to bounded 16 kHz PCM chunks.
 
-The backend remains `src/backend/capri/capri.py` for AI chat and `speech.py` for native local transcription. The voice engine is kept separate because it manages model loading and audio sessions, not chat prompts. Set up voice from the repository root with `uv sync --no-dev --extra voice`, then `uv run --no-dev --extra voice python "financial_ forecast/src/backend/capri/speech.py"`. Start the server using the same voice extra. Model weights stay in ignored `build/speech/`; microphone audio is not saved. Model source/license: https://alphacephei.com/vosk/models (small English 0.15, Apache 2.0).
+The backend remains `src/backend/capri/capri.py` for AI chat and `speech.py` for native local transcription. The voice engine is kept separate because it manages model loading and audio sessions, not chat prompts. Set up voice from the repository root with `uv sync --no-dev --extra voice`, then `uv run --no-dev --extra voice python "financial_ forecast/src/backend/capri/speech.py"`. Start the server using the same voice extra. Whisper small.en weights (roughly 500 MB) stay in ignored `build/speech/`; inference runs on CPU with int8 precision and microphone audio is not saved. The first transcription loads the model; later questions reuse it. An existing Vosk model remains an offline fallback when Whisper has not been installed. Setup downloads are explicit; requests never download models. Legacy Fireworks Whisper endpoints failed live availability checks for this account, so transcription runs locally and requires no additional API key. Model source: https://huggingface.co/Systran/faster-whisper-small.en .
 
 Capri can select/focus an authority, change years, switch layers/views, control
 playback/zoom/sidebar/sound and edit simulations. “Find Barnet in 2019” works
@@ -37,11 +37,13 @@ The server reads `FIREWORKS_API_KEY` from the process environment or the existin
 `financial_ forecast/.env` file. This file remains ignored by Git and is outside
 the publicly served frontend directory. No key is returned to the browser.
 
-The previous Qwen 3 4B Instruct deployment was unavailable when tested. The
-default is now `accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b`, a
-configured lightweight model. Override it with `CAPRI_MODEL` in `.env`.
-An example configuration is provided in the project directory. The integration
-was verified with a real chat request using the existing account key.
+The default is `accounts/fireworks/models/kimi-k3`, with low reasoning effort,
+validated app tool calls and the available authority names supplied as context.
+Override it with `CAPRI_MODEL` in `.env`. The local configuration was upgraded
+from the lightweight Nemotron model and verified against the Chelsea 2030 request.
+Clear requests such as “Capri simulate income per head in 2030 in Chelsea” also
+resolve locally: Chelsea maps to Kensington and Chelsea, then the income layer,
+simulation mode and year are applied through the same controls.
 
 - `GET /api/capri/status`: whether a server key is configured (never the key).
 - `POST /api/capri/chat`: message, bounded conversation history and optionally
@@ -58,7 +60,7 @@ Provider documentation:
 https://docs.fireworks.ai/api-reference/post-chatcompletions
 
 Model:
-https://fireworks.ai/models/fireworks/nemotron-lightning-3p5-30b-a3b
+https://fireworks.ai/models/fireworks/kimi-k3
 
 Sprite provenance, frame layout and generation prompt:
 `assets/visual/capri/README.md`.

@@ -320,3 +320,10 @@ class TerrainStore:
             if "employment" in facts:
                 facts["employment"] = {**facts["employment"], "source_year": year}
         return facts
+
+    def authority_names(self) -> list[str]:
+        self.response()
+        return sorted(
+            a["authority_name"].removesuffix(" LPA")
+            for a in self._facts["authorities"].values()
+        )

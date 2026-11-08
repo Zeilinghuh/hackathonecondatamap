@@ -241,6 +241,7 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
                 facts = FORECAST.context(
                     facts, payload.get("selected_year"), **scenario
                 )
+            facts["available_authorities"] = TERRAIN.authority_names()
             self.send_json(CAPRI.reply(payload, facts))
         except CapriError as error:
             self.send_json({"error": str(error)}, HTTPStatus(error.status))

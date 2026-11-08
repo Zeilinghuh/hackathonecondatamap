@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {forecastSeries} from '../../src/frontend/GUI/forecast.js';
+import {Forecast,forecastSeries,investmentArrowCount} from '../../src/frontend/GUI/forecast.js';
 import {AppActions,validateAction} from '../../src/frontend/GUI/capri/actions.js';
 
 const feature=(name,code)=>({properties:{authority_name:name,authority_code:code}});
@@ -38,4 +38,21 @@ test('actions reject unknown code, nonfinite values and ambiguous authority name
  let called=false;actions.select=()=>{called=true;};
  await assert.rejects(actions.execute([{type:'select_area',target:'Somerset'},{type:'eval'}]));
  assert.equal(called,false,'all actions validated before any changes');
+});
+
+// Weather uses recorded source years until simulation is explicitly enabled.
+test('weather overlays retain observed years and investment changes arrow concentration',()=>{
+ const forecast=Object.create(Forecast.prototype);
+ forecast.enabled=false;forecast.year=2025;
+ forecast.data={years:[2023,2024,2025,2026],projected_from:2026,values:{weeklypay:[[650,null,null,680]]},regions:[{code:'region',fdi:[100,120,null,140]}],areas:[{region:'region'}]};
+ forecast.byCode=new Map([['local',0]]);
+ assert.equal(forecast.sourceYear('weeklypay'),2023);
+ assert.equal(forecast.value('weeklypay','local'),650);
+ assert.equal(forecast.sourceYear('fdi'),2024);
+ assert.equal(forecast.value('fdi','local'),120);
+ forecast.year=2026;assert.equal(forecast.value('weeklypay','local'),680);
+ assert.equal(investmentArrowCount(null,[0,100]),0);
+ assert.equal(investmentArrowCount(0,[0,100]),0);
+ assert.ok(investmentArrowCount(90,[0,100])>investmentArrowCount(10,[0,100]));
+ assert.equal(investmentArrowCount(1000,[0,100]),28);
 });

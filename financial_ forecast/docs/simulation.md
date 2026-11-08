@@ -3,7 +3,7 @@
 `src/backend/forecast_service.py` is the single production model. The local API
 and `simulation.py` export CLI use it; research in `matrixcoefffitting/` remains
 separate. No spreadsheet is read at import or server startup. The first scenario
-opens the workbook once, reads the six required sheets, fits and retains the
+opens the workbook once, reads the required sheets, fits and retains the
 model; later runs are vectorised NumPy operations. Eight compressed scenario
 responses are cached in memory. Restart the server after replacing source data.
 
@@ -12,8 +12,11 @@ responses are cached in memory. Restart the server after replacing source data.
 Workbook sheets 16 (income per head), 17 (weekly pay), 26 (regional inward FDI),
 32 (business deaths), 3 (population density) and 11 (employment ages 16–64) feed
 the model. Employment rows use Observation value, not confidence intervals.
-Only English LADs with complete starting levels/growth enter the model. Regional
-FDI is shared across LADs for fitting, so those samples are not independent.
+All 361 UK LADs with observed income/density starting levels enter the model.
+Scotland, Wales and Northern Ireland use country-level FDI; English LADs use
+regional FDI. These values are shared across LADs for fitting, so those samples
+are not independent. Special planning authorities without matching source
+observations remain unavailable, rather than inventing measurements.
 Business-death fitting uses 2022 onwards and its drift is held flat.
 
 Consecutive observed annual fractional changes are winsorised at the 1st/99th
@@ -21,8 +24,13 @@ percentiles. Pearson cross-correlations have zero diagonal and evidence-weighted
 shrinkage n/(n+500). The feedback matrix is capped at spectral radius 0.9 without
 amplifying weak correlations. Constant series use zero growth variance safely.
 Each LAD starts at its latest available level and standardised observed growth;
-source years differ and are returned explicitly in the API. This does not
-estimate unobserved intervening years.
+source years differ and are returned explicitly in the API. Missing growth
+history (including NI employment with only 2023 observations) starts at the
+model mean, zero standardised growth. Missing auxiliary starting levels use
+an internal regional median for cross-variable feedback, but that metric
+remains unavailable in the displayed projection; income/density remain usable.
+Per-area `estimated_inputs` lists these assumptions. Historical gaps stay null;
+no unobserved intervening years are added.
 
 For each of ten annual steps, cross-variable feedback and an assumed rate rule
 update standardised growth. User shocks (−3 to +3 standard deviations) are added
@@ -53,8 +61,8 @@ The sole UI controller, `GUI/forecast.js`, maps LAD names to planning authoritie
 Simulation mode supplies 2026–2035 to `GUI/timeline.js`; switching off restores
 recorded positions. The existing WebGL renderer updates heights, contours and
 colours for income/density/employment, and the business-closure field follows the
-selected simulated year. Weekly pay rain, regional investment arrows and the
-rate readout share the map and stacked legends. Areas outside coverage use the
+selected simulated year. Weekly pay rain, fixed-size regional investment arrow concentrations and the
+rate readout share the map and stacked legends. Rain/wind controls live under Additional data and also work with recorded values; their legends disclose the actual available source year. All app sliders share the pixel-style thumb/track treatment. Areas outside coverage use the
 same no-data colour in both views. All simulated years and selected-area values
 are labelled. Capri uses the applied scenario, not pending slider edits.
 

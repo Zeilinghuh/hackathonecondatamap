@@ -67,6 +67,8 @@ function showArea(area,position) {
       const value=forecast.value(variable,code,timeline.year);
       return [label+' · simulated '+timeline.year,Number.isFinite(value)?(variable==='income'||variable==='weeklypay'?'£':'')+value.toLocaleString(undefined,{maximumFractionDigits:variable==='income'||variable==='density'?0:1})+({employment:'%',deaths:'%',density:' / km²',weeklypay:' / week',fdi:' £m'}[variable]||''):'Outside model coverage'];
     }));
+    const model=forecast.data?.areas[forecast.byCode?.get(code)];
+    if(model?.estimated_inputs?.length)rows.push(['Model assumptions','Estimated starting growth/input: '+model.estimated_inputs.map(variable=>({income:'income',density:'population density',employment:'employment',deaths:'business failure',weeklypay:'weekly pay',fdi:'foreign investment'}[variable])).join(', ')]);
   }
   stats.replaceChildren(...rows.map(([label,value])=>{
     const row=document.createElement("div"),term=document.createElement("dt"),detail=document.createElement("dd");
@@ -87,7 +89,7 @@ function applyEmploymentFrame(frame,series) {
   renderer.setVegetation(frame.observations,vegetation.palette,vegetation.missingColour);
   controls.setEmploymentSource(frame.year);
   capri.selectedYear=frame.year;
-  document.querySelector("#source-note").textContent=frame.simulated?'SIMULATED employment rate, '+frame.year+'. Exploratory correlation model; England only. Missing areas remain unshaded.':"Employment rate, ages 16–64, "+frame.year+
+  document.querySelector("#source-note").textContent=frame.simulated?'SIMULATED employment rate, '+frame.year+'. Exploratory correlation model; UK coverage; estimated starting inputs are disclosed. Missing areas remain unshaded.':"Employment rate, ages 16–64, "+frame.year+
     ". ONS (Great Britain) / NISRA (Northern Ireland). Missing or suppressed values stay unavailable. Heights and green shading represent employment rate; trees mark 85% or above.";
 }
 
@@ -115,7 +117,7 @@ function applyFrame(name,frame,series,animate=false) {
   controls.setLegend(texture.colourRange,texture.peakHeight);
   if(name==="density")controls.setDensitySource({...terrainData.metadata.population_density,source_year:year,log10_range:series.range});
   capri.selectedYear=year;
-  document.querySelector("#source-note").textContent=(frame.simulated?'SIMULATED · ':'')+(name==="income"?"Income per head":"Population density")+", "+year+" · "+Object.keys(frame.observations).length+" authorities matched. "+(frame.simulated?'Exploratory correlation model; England only. ':'')+"Current boundaries; missing data stays unshaded.";
+  document.querySelector("#source-note").textContent=(frame.simulated?'SIMULATED · ':'')+(name==="income"?"Income per head":"Population density")+", "+year+" · "+Object.keys(frame.observations).length+" authorities matched. "+(frame.simulated?'Exploratory correlation model; UK coverage; estimated starting inputs are disclosed. ':'')+"Current boundaries; missing data stays unshaded.";
   if(selection)showArea(selection,selectedPosition);
   interaction.invalidate();requestDraw();
 }

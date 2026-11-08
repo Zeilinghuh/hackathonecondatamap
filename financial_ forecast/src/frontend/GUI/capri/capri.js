@@ -330,7 +330,7 @@ export class CapriCompanion {
       const response = await fetch("/api/capri/chat", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({message, history:this.history.slice(-8), selected_authority:this.selectedAuthority, selected_year:this.selectedYear, app_state:this.actions?.state(),scenario:this.actions?.forecast.enabled?this.actions.forecast.appliedInputs:null}),
-        signal:AbortSignal.timeout(35000),
+        signal:AbortSignal.timeout(70000),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "The link dropped. Please try again.");

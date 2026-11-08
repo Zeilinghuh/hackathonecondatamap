@@ -35,6 +35,7 @@ Drag/arrow keys pan. In 3D, Shift-drag or Shift-arrow rotates. Right-click an ar
 Scroll/+/- zoom; two fingers pan/pinch; UK view/0 resets. **Data layer** picks **Income per head** (gross disposable household income, £),
 **Population density** (residents per km² on a log height scale), **Employment rate**
 (ages 16–64, %) or **Area boundaries**. All data surfaces have contours and a 3D view.
+**Weekly pay** adds blue rain (heavier means higher pay), and **Foreign investment** adds fixed-size wind arrows (denser means more regional FDI). Both controls are under **Additional data** and work in recorded or simulation mode, with the actual source year in their legends.
 **Business failure** adds the fixed 2024 business-closure rate (% of active businesses,
 ONS business deaths) as a density overlay. On Area boundaries,
 hover an authority for a cyan glow. Right-click an area and choose **Explain this area** to submit a question to Capri; hovering does not call AI.
@@ -47,7 +48,9 @@ uv run --no-dev --extra voice python "financial_ forecast/src/backend/capri/spee
 uv run --no-dev --extra voice python "financial_ forecast/src/backend/server.py"
 ```
 
-The setup downloads a 40 MB English model into ignored `build/speech/`.
+The setup downloads the roughly 500 MB Whisper small.en model into ignored `build/speech/`.
+Whisper runs locally on the CPU with int8 inference; an already installed Vosk model is a fallback.
+The first transcription loads the model; subsequent questions reuse it.
 Hold **Speak to Capri** at the bottom left, speak, then release to transcribe and auto-send.
 Microphone capture runs only during a hold; keyboard users can hold Space or Enter on the button.
 Voice uses the local server and the optional voice setup above.
@@ -75,17 +78,18 @@ Edit growth shocks for all modelled areas, or choose an authority in **Edit**.
 Edits apply automatically after a short pause; **Apply edits** retries a failed
 request. Income, density and employment alter both the contours and 3D heights.
 Business failure alters the closure overlay; **Weekly pay** adds blue rain,
-**Foreign investment** adds regional arrows, and **Rate signal** shows model
+**Foreign investment** adds regional arrow concentrations, and **Rate signal** shows model
 output in the legend stack. **Reset all edits** restores the baseline scenario.
 All controls use the existing dark arcade theme.
 
-The model currently fits **290 English local authorities** with complete inputs;
-unmatched areas and the rest of the UK stay unshaded in simulation mode. It
+The model currently fits **361 UK local authorities**;
+special planning areas without matching data stay grey in simulation mode. It
 uses damped correlations in observed growth, not causal estimates. A shock is
 in growth standard deviations, not a percentage-point change, and fades by 0.6
-each year. FDI edits apply to the whole region. The rate signal is dimensionless,
+each year. FDI edits apply to the whole model region (English region or devolved country). The rate signal is dimensionless,
 not an actual interest rate. Each authority starts from its latest available
-observations, which may have different source years. This is an exploratory
+observations, which may have different source years. Missing growth starts at
+the model mean; estimated baseline inputs are disclosed in the API and selected-area context. This is an exploratory
 what-if model, **not a validated economic prediction**. See [model details](financial_%20forecast/docs/simulation.md).
 
 Type or hold **Speak to Capri**, for example:
@@ -100,7 +104,7 @@ Type or hold **Speak to Capri**, for example:
 
 Capri can control layers, views, area selection, years, playback, overlays,
 simulation shocks/rate stance/reset, zoom/reset, sidebar and sound. She reports
-actual displayed values after actions finish. Other conversation uses Fireworks;
+actual displayed values after actions finish. Other conversation uses the upgraded Kimi K3 model on Fireworks;
 tests mock that service and never spend chat credits. Source files and system
 settings are outside her app controls.
 

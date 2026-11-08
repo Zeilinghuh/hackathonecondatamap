@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-DEFAULT_MODEL = "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b"
+DEFAULT_MODEL = "accounts/fireworks/models/kimi-k3"
 ENDPOINT = "https://api.fireworks.ai/inference/v1/chat/completions"
 PERSONA = """You are Capri, a playful, dry, deadpan digital companion for CAPRICORN.
 Be helpful and brief (normally 1–3 sentences). No repetitive catchphrases,
@@ -21,13 +21,20 @@ blue-to-red contours, density blue-to-pink. These are economic display heights,
 not geographic altitude. Business failure means recorded business closures;
 weekly pay uses rain, foreign investment uses regional arrows. Rate signal is
 dimensionless model output, not the Bank of England interest rate.
-Simulation covers English authorities with complete inputs, 2026–2035. It is an
+Simulation covers available UK authorities, 2026–2035. Its coverage and any
+estimated starting inputs are supplied in the verified facts. It is an
 exploratory correlation model, not a validated forecast or causal estimate.
 Shocks push growth in standard deviations (−3 to +3), fading each projected year.
-Foreign investment edits affect the whole English region. Rate stance is −1 to +1.
+Foreign investment edits affect the whole model region (an English region or
+devolved country). Rate stance is −1 to +1.
 Use control_app for requested application changes: selection/focus, year, data
 layer, 2D/3D, overlays, simulation and its parameters, playback, zoom, sidebar,
-sound. Select areas by local authority name; 'Barnet' is valid. For a historical
+sound. Resolve conversational places to available local authorities: Chelsea or
+Kensington means Kensington and Chelsea; Fulham means Hammersmith and Fulham.
+'Simulate income per head in 2030 in Chelsea' requests the baseline simulated
+income layer, year 2030 and selection/focus of Kensington and Chelsea; it does
+not require a shock. Use the available authority names and ask if ambiguous.
+Select areas by local authority name; 'Barnet' is valid. For a historical
 year first disable simulation; for 2026–2035 enable it. Order actions accordingly.
 A set_shock target can be 'selected', a name, or omitted for all modelled areas.
 Do not claim a change happened before execution; the app reports actual results.
@@ -261,10 +268,9 @@ class CapriService:
                 "tools": [APP_TOOL],
                 "tool_choice": "auto",
                 "temperature": 0.2,
-                "max_tokens": 2500,
-                "repetition_penalty": 1.1,
+                "max_tokens": 4096,
                 "stream": False,
-                "reasoning_effort": "none",
+                "reasoning_effort": "low",
             }
         ).encode("utf-8")
         request = Request(
@@ -277,7 +283,7 @@ class CapriService:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=25) as response:
+            with urlopen(request, timeout=60) as response:
                 result = json.loads(response.read(1024 * 1024))
             answer = result["choices"][0]["message"]
             if answer.get("tool_calls"):

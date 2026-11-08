@@ -34,14 +34,34 @@ class ForecastTests(unittest.TestCase):
         self.assertEqual(d["years"][-10:], list(range(2026, 2036)))
         for variable, rows in d["values"].items():
             values = np.array(rows, dtype=float)[:, -10:]
-            self.assertTrue(np.isfinite(values).all(), variable)
-            self.assertTrue((values >= 0).all(), variable)
+            self.assertFalse(np.isinf(values).any(), variable)
+            self.assertTrue((values[np.isfinite(values)] >= 0).all(), variable)
             if variable in {"deaths", "employment"}:
-                self.assertTrue((values <= 100).all(), variable)
+                self.assertTrue((values[np.isfinite(values)] <= 100).all(), variable)
+            if variable in {"income", "density"}:
+                self.assertTrue(np.isfinite(values).all(), variable)
         # Business-death data starts later; it must never be displayed as zero history.
         self.assertIsNone(d["values"]["deaths"][self.barnet][0])
         self.assertLessEqual(d["source_years"]["income"][self.barnet], 2025)
         json.dumps(d, allow_nan=False)
+
+    def test_all_uk_countries_and_single_year_growth_are_supported(self):
+        d = self.baseline
+        self.assertEqual(len(d["areas"]), 361)
+        for name in ("Scotland", "Wales", "Northern Ireland"):
+            region = next(r for r in d["regions"] if r["name"] == name)
+            self.assertTrue(any(a["region"] == region["code"] for a in d["areas"]))
+        ni = next(i for i, a in enumerate(d["areas"]) if a["code"].startswith("N09"))
+        self.assertEqual(d["source_years"]["employment"][ni], 2023)
+        self.assertIn("employment", d["areas"][ni]["estimated_inputs"])
+        history = d["values"]["employment"][ni][:-10]
+        self.assertIsNone(history[d["years"].index(2022)])
+        self.assertIsNotNone(d["values"]["employment"][ni][-1])
+        scilly = next(
+            i for i, a in enumerate(d["areas"]) if a["name"] == "Isles of Scilly"
+        )
+        self.assertIsNone(d["values"]["employment"][scilly][-1])
+        self.assertIsNotNone(d["values"]["income"][scilly][-1])
 
     def test_local_edit_changes_target_and_keeps_history_and_scale(self):
         code = self.baseline["areas"][self.barnet]["code"]

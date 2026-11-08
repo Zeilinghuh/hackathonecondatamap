@@ -28,7 +28,7 @@ export class Timeline {
     this.slider.min=0;this.slider.max=series.frames.length-1;
     document.querySelector("#year-oldest").textContent=series.frames[0].year;
     document.querySelector("#year-newest").textContent=series.frames.at(-1).year;
-    document.querySelector("#year-note").textContent=this.simulation?"SIMULATED · 2026–2035 · latest available inputs · England only":name==="income"?"Recorded income · not inflation-adjusted · fixed boundaries":name==="employment"?"ONS / NISRA · ages 16–64 · Northern Ireland available for 2023 only.":"Residents per km² · fixed boundaries";
+    document.querySelector("#year-note").textContent=this.simulation?"SIMULATED · 2026–2035 · latest available inputs · UK model estimates":name==="income"?"Recorded income · not inflation-adjusted · fixed boundaries":name==="employment"?"ONS / NISRA · ages 16–64 · Northern Ireland available for 2023 only.":"Residents per km² · fixed boundaries";
     this.show(this.positions[this.key(name)]??(this.simulation?0:series.frames.length-1));
   }
   series(name=this.getSurface()){return (this.simulation||this.data)?.[name];}

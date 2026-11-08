@@ -27,7 +27,8 @@ export class VoiceInput {
     this.button.setAttribute("aria-pressed","true");this.button.textContent="Release to send";
     this.status.textContent="Preparing microphone… Allow access if prompted.";
     try {
-      await this.request(new ArrayBuffer(0));
+      const setup=await this.request(new ArrayBuffer(0));
+      this.engine=setup.model||"local voice";
       if(this.id!==id || !this.held)return;
       const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true},video:false});
       if(this.id!==id || !this.held){stream.getTracks().forEach(track=>track.stop());return;}
@@ -44,14 +45,15 @@ export class VoiceInput {
       this.source=this.context.createMediaStreamSource(stream);this.source.connect(this.node);this.node.connect(this.context.destination);
       await this.context.resume();
       if(this.id!==id || !this.held)return;
-      this.ready=true;this.button.classList.add("is-listening");this.status.textContent="Listening… Release to send.";
+      this.ready=true;this.button.classList.add("is-listening");this.status.textContent="Listening locally · "+this.engine+". Release to send.";
       this.limit=setTimeout(()=>this.fail("Recording limit reached. Hold to speak again."),60000);
     }catch(error){if(this.id===id)this.fail(error.name==="NotAllowedError"?"Microphone blocked. Allow access and try again.":error.message);}
   }
   async request(audio,final=false) {
-    const response=await fetch("/api/capri/speech",{method:"POST",headers:{"Content-Type":"application/octet-stream","X-Speech-Session":this.id,"X-Speech-Final":String(final)},body:audio,signal:AbortSignal.any([this.controller.signal,AbortSignal.timeout(20000)])});
-    if(!response.ok)throw new Error("Local voice is unavailable. Check the server's voice setup.");
-    return response.json();
+    const response=await fetch("/api/capri/speech",{method:"POST",headers:{"Content-Type":"application/octet-stream","X-Speech-Session":this.id,"X-Speech-Final":String(final)},body:audio,signal:AbortSignal.any([this.controller.signal,AbortSignal.timeout(final?60000:20000)])});
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.error||"Local voice is unavailable. Check the server’s voice setup.");
+    return result;
   }
   pump() {
     if(this.pending)return this.pending;
