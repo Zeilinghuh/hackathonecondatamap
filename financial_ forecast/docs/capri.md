@@ -52,7 +52,7 @@ authorities and current app state. No client-side phrase parser chooses actions.
 Only a submitted message triggers a provider request. The provider receives
 the message, recent conversation and a small verified map summary, including
 the selected authority's economic observation when available. Source files and
-credentials are not included. Recent chat is stored in this browser’s local storage and restored after refresh/reopening. Up to 12 recent messages within a 14,000-character budget are sent for context. Clearing browser site data removes the saved chat.
+credentials are not included. Chat is held only in page memory. Refresh/reopening the page starts a fresh conversation; closing and reopening the chat window on the same page preserves context. Up to 12 recent messages within a 14,000-character budget are sent for context. The old saved-chat storage key is removed automatically.
 Errors and provider timeouts appear in chat and allow retrying.
 
 Provider documentation:
@@ -110,7 +110,9 @@ matched, and accuracy in the stacked legend. Pins reproject with camera movement
 bounds are described without miscentring the UK map. There is no background
 location watch or IP-based location guess. Device coordinates are held in page
 memory until reload and included in chat context after an explicit location
-request; ordinary saved chat may contain the resulting explanation.
+request; the current page conversation may contain the resulting explanation.
 
 The unfinished 'Spawn 100 clouds' menu item is removed. No cloud-spawning control
 or general web-search capability is advertised.
+
+Pin removal uses one clearLocation operation for Capri and the × button on the location legend. It removes the marker and legend, clears stored device coordinates and any selection belonging to that pin, and invalidates pending location callbacks. A late browser location result cannot recreate a cleared pin. The model receives explicit pin/marker/legend visibility state after each action.

@@ -240,3 +240,5 @@ input[type="range"]:disabled { opacity:.35; cursor:default; }
 
 .map-location { position:absolute; left:0; top:0; z-index:4; pointer-events:none; color:var(--pink); font:8px/1.6 Arcade,monospace; text-indent:14px; white-space:nowrap; text-shadow:1px 1px 2px var(--sea),-1px -1px 2px var(--sea); }
 .map-location::before { content:''; position:absolute; left:-6px; top:-6px; width:12px; height:12px; border:2px solid var(--pink); border-radius:50%; background:var(--sea); box-shadow:0 0 0 4px #f38bb72a; }
+.location-key { grid-template-columns:minmax(0,1fr) auto; align-items:start; }
+.location-key button { width:20px; height:20px; padding:0; border:1px solid var(--line); background:var(--panel); color:var(--pink); font:inherit; cursor:pointer; }

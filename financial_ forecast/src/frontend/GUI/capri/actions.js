@@ -58,7 +58,9 @@ export class AppActions {
   }
   async locateUser() {
     if(!window.isSecureContext||!navigator.geolocation)throw new Error('Device location needs localhost or HTTPS and a supported browser.');
+    const generation=this.locationGeneration=(this.locationGeneration||0)+1;this.lastLocationAction='requesting';
     const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,error=>reject(new Error({1:'Location permission was denied. You can enable it in the browser site settings.',2:'The device could not determine a location.',3:'The location request timed out. Please try again.'}[error.code]||'Device location is unavailable.')),{enableHighAccuracy:true,timeout:15000,maximumAge:30000}));
+    if(generation!==this.locationGeneration)throw new Error('Location request cancelled because the user cleared pins. Do not retry.');
     const {longitude,latitude,accuracy}=position.coords;
     this.deviceLocation={longitude,latitude,accuracy_m:Number.isFinite(accuracy)?accuracy:null,observed_at:new Date(position.timestamp).toISOString(),source:'browser geolocation'};
     await this.pinPosition({...this.deviceLocation,kind:'device'});
@@ -69,21 +71,32 @@ export class AppActions {
     const [west,south,east,north]=this.navigation.bounds;
     point.in_coverage=lon>=west&&lon<=east&&lat>=south&&lat<=north;
     const area=point.in_coverage?this.areas.find([lon,lat]):null;
-    point.authority_name=area?.feature.properties.authority_name||null;this.positionPin=point;
+    point.authority_name=area?.feature.properties.authority_name||null;this.positionPin=point;this.lastLocationAction='placed';
     this.locationMarker??=document.createElement('div');
-    this.locationMarker.className='map-location';this.locationMarker.setAttribute('aria-hidden','true');
+    this.locationMarker.className='map-location';this.locationMarker.dataset.locationPin='true';this.locationMarker.setAttribute('aria-hidden','true');
     this.locationMarker.textContent=point.kind==='device'?'YOU':'MAP POINT';
     if(!this.locationMarker.isConnected)this.navigation.panel.append(this.locationMarker);
-    this.locationNote??=document.createElement('div');this.locationNote.className='map-key compact-key';this.locationNote.setAttribute('role','status');
+    this.locationNote??=document.createElement('div');this.locationNote.className='map-key compact-key location-key';this.locationNote.dataset.locationPin='true';this.locationNote.setAttribute('role','status');
     if(!this.locationNote.isConnected)this.navigation.panel.querySelector('.legend-stack').append(this.locationNote);
     const label=point.kind==='device'?'Device location':'Map centre';
-    this.locationNote.textContent=label+' · '+(point.authority_name||lat.toFixed(4)+', '+lon.toFixed(4))+(point.accuracy_m!==undefined&&point.accuracy_m!==null?' · approximate ±'+Math.round(point.accuracy_m).toLocaleString()+' m':'')+(point.in_coverage?'':' · outside UK map coverage');
+    const detail=document.createElement('span');detail.textContent=label+' · '+(point.authority_name||lat.toFixed(4)+', '+lon.toFixed(4))+(point.accuracy_m!==undefined&&point.accuracy_m!==null?' · approximate ±'+Math.round(point.accuracy_m).toLocaleString()+' m':'')+(point.in_coverage?'':' · outside UK map coverage');
+    const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove pin');remove.title='Remove pin';remove.addEventListener('click',()=>this.clearLocation());this.locationNote.replaceChildren(detail,remove);
     this.drawLocation();
     if(!point.in_coverage)return;
     this.focusedRegion=null;
     if(area)this.onSelect(area,[lon,lat]);else this.onRegion?.(label);
     const radius=Math.max(.035,Math.min(2,(point.accuracy_m||0)/(111320*Math.cos(lat*Math.PI/180))));
     await this.navigation.focus([lon-radius,mercator(lat)-radius,lon+radius,mercator(lat)+radius],[lon,lat],(p,view)=>this.renderer.project(...p,view,this.navigation.mode,this.controls.surface));
+  }
+  clearLocation() {
+    const point=this.positionPin;
+    this.locationGeneration=(this.locationGeneration||0)+1;
+    this.positionPin=null;this.deviceLocation=null;this.lastLocationAction='cleared';
+    this.locationMarker?.remove();this.locationNote?.remove();
+    this.navigation.panel.querySelectorAll('[data-location-pin],.map-location').forEach(node=>node.remove());
+    this.locationMarker=null;this.locationNote=null;
+    if(point?.authority_name&&this.getSelected()?.feature.properties.authority_name===point.authority_name)this.onRegion?.('Explore the map');
+    this.navigation.onChange();
   }
   drawLocation() {
     if(!this.locationMarker)return;
@@ -106,7 +119,7 @@ export class AppActions {
     let focus=false,play=false,regionFocused=false;this.searchResult=null;
     for(const a of actions){
       switch(a.type){
-        case 'clear_location':this.positionPin=null;this.deviceLocation=null;this.locationMarker?.remove();this.locationNote?.remove();this.locationMarker=null;this.locationNote=null;break;
+        case 'clear_location':this.clearLocation();break;
         case 'locate_user':await this.locateUser();regionFocused=true;break;
         case 'show_map_position':{const camera=this.state().camera;await this.pinPosition({longitude:camera.longitude,latitude:camera.latitude,kind:'map',source:'current map centre'});regionFocused=true;break;}
         case 'select_area':this.select(a.target,false);focus=true;regionFocused=false;break;
@@ -139,9 +152,9 @@ export class AppActions {
     }
     if(!regionFocused&&(focus||actions.some(a=>['set_view','set_year','set_layer','set_simulation','set_shock'].includes(a.type)))&&this.getSelected())await this.focusSelection();
     if(play&&!this.timeline.timer)this.timeline.play.click();
-    const summary=this.summary();return this.searchResult?summary+' '+(this.searchResult.goal==='min'?'Lowest':'Highest')+(this.searchResult.aggregation==='mean'?' average':' authority value')+' found across '+this.searchResult.area_count+' authorities in '+this.searchResult.region+' after '+this.searchResult.evaluations+' parameter settings. Sliders show the winning global settings. This bounded search does not prove a global optimum.':summary;
+    const summary=(actions.some(a=>a.type==='clear_location')?'Location pins and legends removed; device coordinates cleared. ':'')+this.summary();return this.searchResult?summary+' '+(this.searchResult.goal==='min'?'Lowest':'Highest')+(this.searchResult.aggregation==='mean'?' average':' authority value')+' found across '+this.searchResult.area_count+' authorities in '+this.searchResult.region+' after '+this.searchResult.evaluations+' parameter settings. Sliders show the winning global settings. This bounded search does not prove a global optimum.':summary;
   }
-  state(){const v=this.navigation.view,now=new Date();return {browser_context:{time_zone:Intl.DateTimeFormat().resolvedOptions().timeZone,utc_offset_minutes:-now.getTimezoneOffset()},device_location:this.deviceLocation||null,position_pin:this.positionPin||null,camera:{zoom:v.zoom,longitude:(v.width/2-v.offsetX)/v.scale+v.west,latitude:latitudeAt(v.north-(v.height/2-v.offsetY)/v.scale),height:v.focusHeight||0},focused_region:this.focusedRegion||null,simulation_inputs:this.forecast.appliedInputs||this.forecast.inputs,layer:this.controls.surface||'borders',view:this.navigation.mode,year:this.timeline.year,simulation:this.forecast.enabled,selected_area:this.getSelected()?.feature.properties.authority_name||null,available_years:this.timeline.series()?.frames.map(f=>Number(f.year))||[],overlays:[...(this.controls.mistEnabled?['business_failure']:[]),...this.forecast.overlays]};}
+  state(){const v=this.navigation.view,now=new Date();return {location_state:{pin_present:!!this.positionPin,marker_visible:!!this.locationMarker?.isConnected&&!this.locationMarker.hidden,legend_visible:!!this.locationNote?.isConnected,last_operation:this.lastLocationAction||null},browser_context:{time_zone:Intl.DateTimeFormat().resolvedOptions().timeZone,utc_offset_minutes:-now.getTimezoneOffset()},device_location:this.deviceLocation||null,position_pin:this.positionPin||null,camera:{zoom:v.zoom,longitude:(v.width/2-v.offsetX)/v.scale+v.west,latitude:latitudeAt(v.north-(v.height/2-v.offsetY)/v.scale),height:v.focusHeight||0},focused_region:this.focusedRegion||null,simulation_inputs:this.forecast.appliedInputs||this.forecast.inputs,layer:this.controls.surface||'borders',view:this.navigation.mode,year:this.timeline.year,simulation:this.forecast.enabled,selected_area:this.getSelected()?.feature.properties.authority_name||null,available_years:this.timeline.series()?.frames.map(f=>Number(f.year))||[],overlays:[...(this.controls.mistEnabled?['business_failure']:[]),...this.forecast.overlays]};}
   summary() {
     const state=this.state(),p=this.getSelected()?.feature.properties;
     let text=(state.simulation?'Simulated ':'Recorded ')+(state.year||'latest')+' · '+(VARIABLES[state.layer]||'Area boundaries')+' · '+state.view.toUpperCase()+'.';

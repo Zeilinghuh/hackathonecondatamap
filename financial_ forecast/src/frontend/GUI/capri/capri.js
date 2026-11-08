@@ -2,7 +2,6 @@
 import {VoiceInput} from "./voice.js";
 import {sfx} from "../terraincontrols.js";
 const FRAMES={orb:[0,1,2,3],idle:[0,0,0,3],talking:[1,2,1,0]};
-const HISTORY_KEY='capri.history.v1';
 function recentHistory(entries) {
   const result=[];let size=0;
   for(const entry of (Array.isArray(entries)?entries:[]).slice(-40).reverse()){
@@ -18,7 +17,7 @@ export class CapriCompanion {
     this.open = false;
     this.busy = false;
     this.history = [];
-    try{this.history=recentHistory(JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'));}catch{}
+    try{localStorage.removeItem('capri.history.v1');}catch{}
     this.selectedAuthority = null;
     this.x = 0;
     this.y = 0;
@@ -60,8 +59,7 @@ export class CapriCompanion {
     this.speech=mapPanel.querySelector(".capri-bubble");
     this.speech.querySelector(".bubble-close").addEventListener("click",()=>this.dismissBubble());
     this.speech.querySelector(".bubble-talk").addEventListener("click",()=>{const action=this.speechAction;this.dismissBubble();if(action)action();else this.setOpen(true);});
-    if(this.history.length)for(const entry of this.history)this.appendMessage(entry.role,entry.content);
-    else this.appendMessage("assistant", "Hey~ I’m Capri, your resident AI troublemaker. I make sense of economic data and help you explore the what-ifs. You bring the ideas; I’ll bring the numbers. And occasional judgement.");
+    this.appendMessage("assistant", "Hey~ I’m Capri, your resident AI troublemaker. I make sense of economic data and help you explore the what-ifs. You bring the ideas; I’ll bring the numbers. And occasional judgement.");
     this.button.addEventListener("click", () => {
       if (this.dragged) { this.dragged = false; return; }
       this.setOpen(!this.open);
@@ -360,14 +358,13 @@ export class CapriCompanion {
       await this.typeReply(reply, pending.content);
       this.history.push({role:"user",content:message},{role:"assistant",content:reply});
       this.history = recentHistory(this.history);
-      try{localStorage.setItem(HISTORY_KEY,JSON.stringify(this.history));}catch{}
       this.status.textContent = "Link ready · Just us and the map";
     } catch (error) {
       pending.element.classList.remove("pending");
       pending.element.classList.add("error");
       const failure=error.name==='TimeoutError'?'The link timed out. Try again?':error.message;
       pending.content.textContent=actionResult?this.actions.summary()+' I could not finish the request: '+failure:failure;
-      if(actionResult){this.history=recentHistory([...this.history,{role:'user',content:message},{role:'assistant',content:pending.content.textContent}]);try{localStorage.setItem(HISTORY_KEY,JSON.stringify(this.history));}catch{}}
+      if(actionResult){this.history=recentHistory([...this.history,{role:'user',content:message},{role:'assistant',content:pending.content.textContent}]);}
       this.status.textContent = "Link interrupted · You can retry";
     } finally {
       this.busy = false;

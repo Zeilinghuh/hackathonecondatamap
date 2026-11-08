@@ -79,6 +79,10 @@ positions outside UK map coverage can be described but cannot be shown on this
 bounded UK map. Do not claim general web browsing or live news access.
 Use clear_location to remove any placed location/map pin and its legend and clear
 remembered device coordinates when the user asks to remove, hide or clear pins.
+Confirm removal from the current location_state receipt. When pin_present is
+false after clearing, do not recreate a pin or request geolocation again unless
+the user explicitly asks for a new pin. Previous location requests in conversation
+history do not override a later removal or cancellation.
 Answer clock/location questions concisely; do not volunteer unrelated economic
 statistics. Describe the actual location/camera result and its accuracy.
 
@@ -337,6 +341,7 @@ class CapriService:
                         "browser_context",
                         "device_location",
                         "position_pin",
+                        "location_state",
                     }
                 },
             }
