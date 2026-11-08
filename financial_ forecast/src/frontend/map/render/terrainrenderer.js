@@ -9,11 +9,12 @@ attribute vec2 uv;
 uniform mat4 camera;
 uniform mediump float raised;
 uniform float heightScale;
+uniform mediump float mistPass;
 varying vec2 textureUV;
 varying float light;
 varying float heightValue;
 void main() {
-  gl_Position = camera * vec4(position.x, position.y * raised, position.z, 1.0);
+  gl_Position = camera * vec4(position.x, position.y * raised + mistPass * raised * .32, position.z, 1.0);
   textureUV = uv;
   heightValue = position.y / heightScale;
   light = mix(1.0, .76 + .24 * max(0.0, dot(normal, normalize(vec3(-.5,1.0,.7)))), raised);
@@ -27,7 +28,12 @@ uniform float contoursOn;
 uniform float contourInterval;
 uniform float pixelRatio;
 uniform float densitySurface;
+<<<<<<< HEAD
 uniform float vegetationBase;
+=======
+uniform sampler2D mistTexture;
+uniform mediump float mistPass;
+>>>>>>> 90613ff4dd33c69c229cb82596877345898cdf72
 varying vec2 textureUV;
 varying float light;
 varying float heightValue;
@@ -41,6 +47,14 @@ float contour(float interval, float width) {
     * smoothstep(2.0,4.0,spacing) * step(.00001,slope);
 }
 void main() {
+  if (mistPass > .5) {
+    float field = texture2D(mistTexture, textureUV).a;
+    float wisp = .62 + .22 * sin(textureUV.x * 115.0 + sin(textureUV.y * 83.0));
+    wisp += .16 * sin(textureUV.y * 173.0 + textureUV.x * 43.0);
+    float alpha = smoothstep(.07, .62, field * wisp) * .43;
+    gl_FragColor = vec4(vec3(.68, .81, .89), alpha);
+    return;
+  }
   vec4 colour = texture2D(surface, textureUV);
   if (colour.a < .5) discard;
   vec3 shaded = mix(colour.rgb * light,vec3(.91,.95,.92),vegetationBase);
@@ -95,17 +109,19 @@ export class TerrainRenderer {
     this.raisedLocation = gl.getUniformLocation(this.program, "raised");
     this.contoursLocation = gl.getUniformLocation(this.program,"contoursOn");
     this.ratioLocation = gl.getUniformLocation(this.program, "pixelRatio");
+    this.mistPassLocation = gl.getUniformLocation(this.program, "mistPass");
     this.densityLocation = gl.getUniformLocation(this.program, "densitySurface");
     this.vegetationLocation = gl.getUniformLocation(this.program, "vegetationBase");
     this.heightScaleLocation = gl.getUniformLocation(this.program, "heightScale");
     gl.uniform1f(gl.getUniformLocation(this.program,"contourInterval"),this.dem.contour_interval || 5);
     gl.uniform1i(gl.getUniformLocation(this.program, "surface"), 0);
     gl.uniform1i(gl.getUniformLocation(this.program, "matched"), 1);
+    gl.uniform1i(gl.getUniformLocation(this.program, "mistTexture"), 2);
     // Upload only at creation/restoration, never when moving the camera.
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
     this.maxTextureSize=maxSize;
     this.textures = [this.textureSource.base, this.textureSource.terrain, this.textureSource.matched,
-      this.textureSource.densityTerrain].map(source => {
+      this.textureSource.densityTerrain, this.textureSource.mist].map(source => {
       const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
       let image = source;
       if (source.height > Math.min(3072, maxSize) || source.width > maxSize) {
@@ -153,7 +169,10 @@ export class TerrainRenderer {
     return {centre, basis, matrix};
   }
 
-  surfaceOf(surface) { return surface && this.meshes[surface] ? surface : null; }
+  surfaceOf(surface) {
+    if (surface === "mist") surface = "income";
+    return surface && this.meshes[surface] ? surface : null;
+  }
 
   updateFrame(name,dem) {
     const gl=this.gl;
@@ -178,6 +197,7 @@ export class TerrainRenderer {
   draw(view, surface, mode="2d", highlights=[], vegetation=false) {
     const gl = this.gl;
     if (gl.isContextLost()) return;
+    const mistEnabled = surface === "mist";
     surface = this.surfaceOf(surface);
     gl.useProgram(this.program);
     gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface || "income"]);
@@ -198,10 +218,29 @@ export class TerrainRenderer {
     gl.uniform1f(this.vegetationLocation,vegetation?1:0);
     gl.uniform1f(this.heightScaleLocation,surface === "density" ? DENSITY_HEIGHT_SCALE : HEIGHT_SCALE);
     gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
+    gl.uniform1f(this.mistPassLocation, 0);
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3}[surface] ?? 0]);
     gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
+<<<<<<< HEAD
     if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation);
+=======
+    if (mistEnabled) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthFunc(gl.LEQUAL);
+      gl.depthMask(false);
+      gl.uniform1f(this.mistPassLocation, 1);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, this.textures[4]);
+      gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
+      gl.depthMask(true);
+      gl.depthFunc(gl.LESS);
+      gl.disable(gl.BLEND);
+      gl.activeTexture(gl.TEXTURE0);
+    }
+    if (!surface) this.areaLayer.draw(matrix,view,highlights);
+>>>>>>> 90613ff4dd33c69c229cb82596877345898cdf72
   }
 
   pan(view, dx, dy) {

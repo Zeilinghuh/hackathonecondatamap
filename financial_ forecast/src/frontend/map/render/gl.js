@@ -13,7 +13,11 @@ export function createProgram(gl, vertexSource, fragmentSource, attributes) {
   shaders.forEach(shader => gl.attachShader(program,shader));
   attributes.forEach((name,index) => gl.bindAttribLocation(program,index,name));
   gl.linkProgram(program); shaders.forEach(shader => gl.deleteShader(shader));
-  if (!gl.getProgramParameter(program,gl.LINK_STATUS)) throw new Error("Map graphics could not be linked.");
+  if (!gl.getProgramParameter(program,gl.LINK_STATUS)) {
+    const detail = gl.getProgramInfoLog(program);
+    gl.deleteProgram(program);
+    throw new Error("Map graphics could not be linked: "+detail);
+  }
   return program;
 }
 

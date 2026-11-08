@@ -4,7 +4,11 @@ const NOTES = {
   terrain: "Blue lows → cyan → green → yellow → red → dark crimson peaks.",
   density: "Population density terrain: height follows log₁₀ residents per km². Bright blue lows are sparse, black peaks are crowded; contours are white.",
   borders: "Authority borders only. Hover an area, then click to select it.",
+<<<<<<< HEAD
   vegetation: "Darker green shows higher employment. Small trees mark only 85%+ areas. Move the year slider, then select an area for its rate and annual change.",
+=======
+  mist: "Business-death mist: denser wisps indicate a higher share of active businesses that ceased trading in 2024.",
+>>>>>>> 90613ff4dd33c69c229cb82596877345898cdf72
 };
 export const formatDensity = value => Math.round(value).toLocaleString() + " / km²";
 
@@ -50,7 +54,7 @@ export class TerrainControls {
   }
 
   // Raised, contoured surface for the layer: "income", "density" or null (flat borders + hover).
-  get surface() { return {terrain: "income", density: "density"}[this.layer] ?? null; }
+  get surface() { return {terrain: "income", density: "density", mist: "mist"}[this.layer] ?? null; }
   get visible() { return this.surface !== null; }
   get density() { return this.layer === "density"; }
   get vegetation() { return this.layer === "vegetation"; }
@@ -62,11 +66,15 @@ export class TerrainControls {
     document.querySelector("#control-note").textContent = NOTES[layer];
     document.querySelector("#terrain-key").hidden = layer !== "terrain";
     document.querySelector("#density-key").hidden = layer !== "density";
+<<<<<<< HEAD
     document.querySelector("#vegetation-key").hidden = layer !== "vegetation";
   }
 
   setEmploymentSource(year) {
     document.querySelector("#vegetation-title").textContent = "Employment landscape · " + year;
+=======
+    document.querySelector("#mist-key").hidden = layer !== "mist";
+>>>>>>> 90613ff4dd33c69c229cb82596877345898cdf72
   }
 
   buildDensityLegend() {
