@@ -1,6 +1,6 @@
 import { cameraBasis, terrainMesh, pickTerrain, latitudeAt, HEIGHT_SCALE, DENSITY_HEIGHT_SCALE } from "../terrainmath.js";
 import { createProgram, uploadBuffer } from "./gl.js";
-import { AreaLayer } from "./arealayer.js";
+import { AreaLayer } from "./arealayer.js?v=vegetation-contours-1";
 
 const vertexSource = `
 attribute vec3 position;
@@ -25,6 +25,7 @@ precision mediump float;
 uniform sampler2D surface;
 uniform sampler2D matched;
 uniform float contoursOn;
+uniform float contourPass;
 uniform float contourInterval;
 uniform float pixelRatio;
 uniform float densitySurface;
@@ -55,12 +56,17 @@ void main() {
   vec4 colour = texture2D(surface, textureUV);
   if (colour.a < .5) discard;
   vec3 shaded = mix(colour.rgb * light,vec3(.91,.95,.92),vegetationBase);
-  // White density contours are quieter between bold lines so the blue stays legible.
-  float minor = contour(contourInterval,.45)*mix(.62,.3,densitySurface);
-  float major = contour(contourInterval*5.0,.75)*.86;
+  // Bold white density contours stand out against the blue, purple and pink.
+  float minor = contour(contourInterval,.45)*mix(.62,.5,densitySurface);
+  float major = contour(contourInterval*5.0,.75)*mix(.86,1.0,densitySurface);
   float lines = max(minor,major)*contoursOn*texture2D(matched,textureUV).a;
+  if (contourPass > .5) {
+    // Transparent between lines so the employment colours remain visible.
+    gl_FragColor = vec4(vec3(.02,.10,.055),lines);
+    return;
+  }
   float luminance = dot(shaded,vec3(.2126,.7152,.0722));
-  // Income: dark ink, pale blue on dark-blue lows. Density: white contours everywhere.
+  // Income: pale blue ink on dark-blue lows. Density: white contours.
   float lightInk = (colour.b > colour.r && luminance < .12) ? 1.0 : 0.0;
   vec3 ink = mix(mix(vec3(.01,.025,.04),vec3(.5,.65,.8),lightInk),vec3(1.0),densitySurface);
   gl_FragColor = vec4(mix(shaded,ink,lines),1.0);
@@ -105,6 +111,7 @@ export class TerrainRenderer {
     this.cameraLocation = gl.getUniformLocation(this.program, "camera");
     this.raisedLocation = gl.getUniformLocation(this.program, "raised");
     this.contoursLocation = gl.getUniformLocation(this.program,"contoursOn");
+    this.contourPassLocation = gl.getUniformLocation(this.program,"contourPass");
     this.ratioLocation = gl.getUniformLocation(this.program, "pixelRatio");
     this.mistPassLocation = gl.getUniformLocation(this.program, "mistPass");
     this.densityLocation = gl.getUniformLocation(this.program, "densitySurface");
@@ -138,7 +145,7 @@ export class TerrainRenderer {
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D,this.textures[4]);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
-    gl.clearColor(11/255,16/255,24/255,1);
+    gl.clearColor(0,0,0,1);
     this.areaLayer = new AreaLayer(gl,this.areas);
     if(this.vegetationData) {
       const {observations,palette,missing}=this.vegetationData;
@@ -192,26 +199,50 @@ export class TerrainRenderer {
     }
   }
 
+  bindMesh(surface="income") {
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface]);
+    for (const [index,size,offset] of [[0,3,0],[1,3,12],[2,2,24]]) {
+      gl.enableVertexAttribArray(index); gl.vertexAttribPointer(index,size,gl.FLOAT,false,32,offset);
+    }
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);
+  }
+
+  drawVegetationContours(matrix,view) {
+    const gl=this.gl;
+    // Reuse the income height field on the flat employment map. AreaLayer has
+    // enabled alpha blending and disabled depth testing before this pass.
+    gl.useProgram(this.program);
+    this.bindMesh();
+    gl.uniformMatrix4fv(this.cameraLocation,false,matrix);
+    gl.uniform1f(this.raisedLocation,0);
+    gl.uniform1f(this.heightScaleLocation,HEIGHT_SCALE);
+    gl.uniform1f(this.contoursLocation,1);
+    gl.uniform1f(this.contourPassLocation,1);
+    gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.textures[0]);
+    gl.drawElements(gl.TRIANGLES,this.meshes.income.indices.length,gl.UNSIGNED_SHORT,0);
+    gl.uniform1f(this.contourPassLocation,0);
+    gl.uniform1f(this.contoursLocation,0);
+  }
+
   draw(view, surface, mode="2d", highlights=[], vegetation=false) {
     const gl = this.gl;
     if (gl.isContextLost()) return;
     const mistEnabled = surface === "mist";
     surface = this.surfaceOf(surface);
     gl.useProgram(this.program);
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface || "income"]);
-    for (const [index,size,offset] of [[0,3,0],[1,3,12],[2,2,24]]) {
-      gl.enableVertexAttribArray(index); gl.vertexAttribPointer(index,size,gl.FLOAT,false,32,offset);
-    }
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);
+    this.bindMesh(surface || "income");
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    if(vegetation)gl.clearColor(.86,.94,.99,1);
-    else gl.clearColor(11/255,16/255,24/255,1);
+    gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const matrix = this.camera(view,mode).matrix;
     gl.uniformMatrix4fv(this.cameraLocation, false, matrix);
     gl.uniform1f(this.raisedLocation, surface && mode === "3d" ? 1 : 0);
     gl.uniform1f(this.contoursLocation,surface ? 1 : 0);
+    gl.uniform1f(this.contourPassLocation,0);
     gl.uniform1f(this.densityLocation,surface === "density" ? 1 : 0);
     gl.uniform1f(this.vegetationLocation,vegetation?1:0);
     gl.uniform1f(this.heightScaleLocation,surface === "density" ? DENSITY_HEIGHT_SCALE : HEIGHT_SCALE);
@@ -234,7 +265,8 @@ export class TerrainRenderer {
       gl.disable(gl.BLEND);
       gl.activeTexture(gl.TEXTURE0);
     }
-    if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation);
+    if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation,
+      vegetation ? () => this.drawVegetationContours(matrix,view) : undefined);
   }
 
   pan(view, dx, dy) {

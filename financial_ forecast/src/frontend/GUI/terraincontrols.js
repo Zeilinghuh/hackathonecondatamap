@@ -1,10 +1,10 @@
-import { CONTOUR_COLOURS, PEAK_COLOURS, DENSITY_BREAKS, DENSITY_COLOURS, NO_DATA_COLOUR } from "../map/render/terraintexture.js";
+import { CONTOUR_COLOURS, PEAK_COLOURS, DENSITY_BREAKS, DENSITY_COLOURS, NO_DATA_COLOUR } from "../map/render/terraintexture.js?v=density-blue-pink-3";
 
 const NOTES = {
   terrain: "Blue lows → cyan → green → yellow → red → dark crimson peaks.",
-  density: "Population density terrain: height follows log₁₀ residents per km². Bright blue lows are sparse, black peaks are crowded; contours are white.",
+  density: "Population density terrain: height follows log₁₀ residents per km². Electric blue is sparse, hot pink is crowded; contours are white.",
   borders: "Authority borders only. Hover an area, then click to select it.",
-  vegetation: "Darker green shows higher employment. Small trees mark only 85%+ areas. Move the year slider, then select an area for its rate and annual change.",
+  vegetation: "Darker green shows higher employment; contours follow income terrain height. Small trees mark only 85%+ areas. Move the year slider, then select an area for its rate and annual change.",
   mist: "Business-death mist: denser wisps indicate a higher share of active businesses that ceased trading in 2024.",
 };
 export const formatDensity = value => Math.round(value).toLocaleString() + " / km²";
@@ -64,11 +64,13 @@ export class TerrainControls {
     document.querySelector("#terrain-key").hidden = layer !== "terrain";
     document.querySelector("#density-key").hidden = layer !== "density";
     document.querySelector("#vegetation-key").hidden = layer !== "vegetation";
+    document.querySelector("#vegetation-summary").hidden = layer !== "vegetation";
     document.querySelector("#mist-key").hidden = layer !== "mist";
   }
 
+  // Older cached map scripts still call this hook; keep dates out of the key text.
   setEmploymentSource(year) {
-    document.querySelector("#vegetation-title").textContent = "Employment landscape · " + year;
+    document.querySelector("#vegetation-key").dataset.sourceYear = String(year);
   }
 
   buildDensityLegend() {
@@ -78,27 +80,28 @@ export class TerrainControls {
       if (high === undefined) return `${low.toLocaleString()}+`;
       return `${low.toLocaleString()}–${high.toLocaleString()}`;
     });
-    const rows = labels.map((label, index) => [DENSITY_COLOURS[index], label]).reverse();
-    rows.push([NO_DATA_COLOUR, "No data"]);
     const list = document.querySelector("#density-classes");
-    list.replaceChildren(...rows.map(([colour, label]) => {
-      const item = document.createElement("li"), swatch = document.createElement("span");
-      swatch.className = "swatch"; swatch.style.background = colour;
-      item.append(swatch, label);
+    list.replaceChildren(...labels.map((label, index) => {
+      const item = document.createElement("li"), swatch = document.createElement("span"), text = document.createElement("span");
+      swatch.className = "swatch"; swatch.style.background = DENSITY_COLOURS[index];
+      swatch.setAttribute("aria-hidden", "true");
+      text.className = "visually-hidden"; text.textContent = label;
+      item.append(swatch, text);
       return item;
     }));
+    document.querySelector("#density-low").textContent = labels[0] + " / km²";
+    document.querySelector("#density-high").textContent = labels[labels.length - 1] + " / km²";
+    document.querySelector("#density-missing").style.background = NO_DATA_COLOUR;
   }
 
   // meta: metadata.population_density (source_year, log10_range).
   setDensitySource(meta) {
     if (!meta) return;
-    document.querySelector("#density-title").textContent = `Residents per km² · mid-${meta.source_year}`;
     const [low, high] = meta.log10_range ?? [];
     if (Number.isFinite(low) && Number.isFinite(high)) {
       // Heights are 0–1000; major contours every 25 units multiply density by this factor.
       const factor = 10 ** ((high - low) * 25 / 1000);
-      document.querySelector("#density-scale").textContent = `Log heights · each bold contour ≈ ×${factor.toFixed(2)}`;
-      NOTES.density = `Population density terrain: height follows log₁₀ residents per km², so each bold contour ≈ ×${factor.toFixed(2)} people. Bright blue lows are sparse, black peaks are crowded; contours are white.`;
+      NOTES.density = `Population density terrain: height follows log₁₀ residents per km², so each bold contour ≈ ×${factor.toFixed(2)} people. Electric blue is sparse, hot pink is crowded; contours are white.`;
       if (this.layer === "density") document.querySelector("#control-note").textContent = NOTES.density;
     }
   }
