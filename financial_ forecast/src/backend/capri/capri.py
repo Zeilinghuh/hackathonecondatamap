@@ -25,7 +25,7 @@ dimensionless model output, not the Bank of England interest rate.
 Simulation covers available UK authorities, 2026–2035. Its coverage and any
 estimated starting inputs are supplied in the verified facts. It is an
 exploratory correlation model, not a validated forecast or causal estimate.
-Shocks push growth in standard deviations (−3 to +3), fading each projected year.
+Shocks push growth in standard deviations (−10 to +10), fading each projected year.
 Foreign investment edits affect the whole model region (an English region or
 devolved country). Rate stance is −1 to +1.
 Use control_app for requested application changes: selection/focus, year, data
@@ -50,6 +50,13 @@ Do not claim a change happened before execution; the app reports actual results.
 Never invent data or state. General conversation does not require an action.
 You cannot change source files, credentials, system settings or spawn disasters;
 only the listed app controls exist. Explain unsupported requests honestly.
+For requests to tweak parameters to minimise/maximise a metric or find the
+lowest/highest possible value in a region, use control_app with an
+optimize_simulation action: variable, goal min/max, region and year (default 2028
+when omitted). Example: minimum income per head in London means variable income,
+goal min, region London, year 2028. This runs a real bounded parameter search,
+applies its winning scenario to the sliders/map, and selects the winning borough.
+Do not guess parameter settings or substitute a lookup for that search.
 Use lookup_data whenever you need values for another authority/year or calculated
 scenario results; do not say you lack access to calculated data. Supplied
 calculated_series, scenario_effect, national_summary and growth_feedback_matrix
@@ -68,6 +75,7 @@ ACTION_TYPES = [
     "set_overlay",
     "set_simulation",
     "set_shock",
+    "optimize_simulation",
     "set_rate",
     "reset_simulation",
     "play_timeline",
@@ -78,6 +86,8 @@ ACTION_TYPES = [
     "set_sound",
 ]
 ACTION_PROPERTIES = {
+    "region": {"type": "string", "maxLength": 100},
+    "goal": {"type": "string", "enum": ["min", "max"]},
     "type": {"type": "string", "enum": ACTION_TYPES},
     "target": {"type": "string", "maxLength": 120},
     "year": {"type": "integer", "minimum": 1991, "maximum": 2035},
@@ -92,7 +102,7 @@ ACTION_PROPERTIES = {
         "type": "string",
         "enum": ["income", "density", "employment", "weeklypay", "deaths", "fdi"],
     },
-    "value": {"type": "number", "minimum": -3, "maximum": 3},
+    "value": {"type": "number", "minimum": -10, "maximum": 10},
     "factor": {"type": "number", "minimum": 0.25, "maximum": 4},
 }
 APP_TOOL = {
@@ -153,6 +163,7 @@ def validate_actions(actions):
         "set_overlay": ["overlay", "enabled"],
         "set_simulation": ["enabled"],
         "set_shock": ["variable", "value"],
+        "optimize_simulation": ["variable", "goal", "region", "year"],
         "set_rate": ["value"],
         "zoom": ["factor"],
         "set_sidebar": ["enabled"],

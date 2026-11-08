@@ -33,7 +33,7 @@ Per-area `estimated_inputs` lists these assumptions. Historical gaps stay null;
 no unobserved intervening years are added.
 
 For each of ten annual steps, cross-variable feedback and an assumed rate rule
-update standardised growth. User shocks (−3 to +3 standard deviations) are added
+update standardised growth. User shocks (−10 to +10 standard deviations) are added
 with a 0.6 annual decay. Multiplicative level factors are nonnegative, and
 employment/business-death percentages are clamped to 0–100. The rate rule uses
 mean wage/employment growth and fixed assumed sensitivities, with a dimensionless
@@ -77,3 +77,7 @@ uv run python "financial_ forecast/src/backend/simulation.py" --output "financia
 
 The default workbook is generated under ignored `build/`. The CLI does not
 modify the source workbook or research spreadsheets.
+
+## Capri parameter search
+
+Capri can run a bounded coordinate search for a metric minimum/maximum within a model region (default year 2028). It evaluates global shock settings at -10, -5, 0, 5 and 10, plus rate stance -1, 0 and 1, for up to two sweeps, keeping existing area-specific edits. All candidate values come from the same simulation service. The winning settings populate the sliders; the map changes to the requested future metric/year and focuses the winning authority. The reply reports the region, number of authorities and candidate count. This is the best result found, not a proof of a global optimum; extreme settings can hit model floors/caps. Rate stance retains its separate -1 to +1 range.

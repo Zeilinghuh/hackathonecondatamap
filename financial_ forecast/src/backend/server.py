@@ -192,7 +192,11 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         route = urlparse(self.path).path
-        if route not in {"/api/capri/chat", "/api/capri/speech"}:
+        if route not in {
+            "/api/capri/chat",
+            "/api/capri/speech",
+            "/api/forecast/search",
+        }:
             self.send_json({"error": "Unknown endpoint."}, HTTPStatus.NOT_FOUND)
             return
         if not self.local_request():
@@ -224,6 +228,14 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             if self.headers.get_content_type() != "application/json":
                 raise CapriError("Send the chat request as JSON.", 415)
             payload = json.loads(self.rfile.read(size))
+            if route == "/api/forecast/search":
+                if not isinstance(payload, dict) or any(
+                    k not in {"variable", "region", "year", "goal", "scenario"}
+                    for k in payload
+                ):
+                    raise ValueError("Invalid simulation search.")
+                self.send_json(FORECAST.optimize(**payload))
+                return
             CAPRI.validate(payload)
             scenario = payload.get("scenario")
             facts = TERRAIN.context(

@@ -31,9 +31,9 @@ export class Forecast {
       <div id="simulation-controls" hidden>
         <p class="simulation-warning">Exploratory UK model · estimates where needed · not a prediction</p>
         <label class="simulation-area">Edit <select id="simulation-scope"><option value="">All modelled areas</option></select></label>
-        <div class="simulation-sliders">${Object.entries(VARIABLES).map(([v,label])=>`<label>${label}<output data-output="${v}">0</output><input aria-label="${label} growth shock" data-shock="${v}" type="range" min="-3" max="3" step="0.25" value="0"></label>`).join('')}</div>
+        <div class="simulation-sliders">${Object.entries(VARIABLES).map(([v,label])=>`<label>${label}<output data-output="${v}">0</output><input aria-label="${label} growth shock" data-shock="${v}" type="range" min="-10" max="10" step="0.25" value="0"></label>`).join('')}</div>
         <label class="simulation-rate">Rate stance <output id="rate-output">0</output><input id="rate-bias" aria-label="Rate stance" type="range" min="-1" max="1" step="0.1" value="0"></label>
-        <p class="simulation-help">Growth shocks use standard deviations (−3 to +3), fading each year. Foreign investment applies to the whole region; rate stance is national.</p>
+        <p class="simulation-help">Growth shocks use standard deviations (−10 to +10), fading each year. Foreign investment applies to the whole region; rate stance is national.</p>
         <button id="simulation-reset">Reset all edits</button>
         <details><summary>Model and coverage</summary><p id="simulation-model"></p><p id="simulation-coverage"></p></details>
       </div>
@@ -95,7 +95,7 @@ export class Forecast {
     catch(error){if(this.enabled)await this.setEnabled(false);this.setStatus(error.message);throw error;}
   }
   async edit(variable,value,localCode=null) {
-    if(!(variable in VARIABLES) || !Number.isFinite(value) || Math.abs(value)>3)throw new Error('Use a growth shock between −3 and +3.');
+    if(!(variable in VARIABLES) || !Number.isFinite(value) || Math.abs(value)>10)throw new Error('Use a growth shock between −10 and +10.');
     if(!this.data)await this.reload();
     if(localCode){const index=this.byCode.get(localCode);if(index===undefined)throw new Error('This area has insufficient simulation data.');const code=this.data.areas[index].code;(this.inputs.area_shocks[code]??={})[variable]=value;this.scope.value=code;}
     else this.inputs.shocks[variable]=value;

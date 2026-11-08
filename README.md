@@ -164,3 +164,5 @@ node --test tests/frontend/*.test.mjs
 Node is only needed for the frontend tests. Chat tests mock the provider.
 
 Capri drives map controls for recorded/simulation switching, scenarios and playback. Area requests use a smooth camera flight, centred on the displayed terrain height in 3D. Manual year scrubbing also morphs the shared contour surface; rapid input reuses and retargets the active transition. Reduced-motion preferences keep camera and terrain changes immediate.
+
+Capri can search simulation parameters, for example “change the parameters to find minimum income per head in London”. She uses 2028 if no future year is specified, searches global shock/rate settings, applies the best result found to the map and sliders, and focuses the winning authority. This bounded search does not establish a global optimum.

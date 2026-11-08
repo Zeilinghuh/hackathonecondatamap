@@ -179,7 +179,7 @@ def validate_inputs(shocks=None, rate_bias=0.0, area_shocks=None):
     def edits(values):
         if not isinstance(values, dict) or any(v not in VARS for v in values):
             raise ValueError("Unknown simulation variable.")
-        cleaned = {v: number(x, 3) for v, x in values.items()}
+        cleaned = {v: number(x, 10) for v, x in values.items()}
         return {v: x for v, x in cleaned.items() if x != 0}
 
     if area_shocks is None:
@@ -490,6 +490,98 @@ class ForecastService:
             "source_years": s["source_years"],
             "coverage": f"{len(s['codes'])} UK local authorities with observed income and density inputs, including Scotland, Wales and Northern Ireland. Special planning authorities without source observations stay unavailable; FDI is regional or country-level.",
             "model_note": "Exploratory correlation model, not a validated economic prediction. Shocks are growth standard deviations, fading by 0.6 each year. Latest available observations seed 2026, with different source years. Where growth history is absent, the model starts at average growth (zero standardised growth); missing auxiliary levels use an internal regional median but that metric's output remains unavailable. Such inputs are listed per area. Recorded history is never filled. Means are unweighted authority averages; FDI is a regional/country total. Rate signal is dimensionless, not an actual interest rate.",
+        }
+
+    def optimize(
+        self, variable="income", region="UK", year=2028, goal="min", scenario=None
+    ):
+        """Bounded coordinate search; report the best explored scenario, not a proof."""
+        if variable not in {
+            "income",
+            "density",
+            "employment",
+            "weeklypay",
+            "deaths",
+        } or goal not in {"min", "max"}:
+            raise ValueError("Choose an available metric and min or max.")
+        if (
+            isinstance(year, bool)
+            or not isinstance(year, int)
+            or not 2026 <= year <= 2035
+        ):
+            raise ValueError("Choose a simulation year from 2026 to 2035.")
+        if not isinstance(region, str) or len(region) > 100:
+            raise ValueError("Choose a model region.")
+        match = next(
+            (
+                code
+                for code, (name, _, _) in REGIONS.items()
+                if region.lower() in {name.lower(), code.lower()}
+            ),
+            None,
+        )
+        if region.lower() == "greater london":
+            match = "E12000007"
+        if match is None and region.lower() not in {"uk", "united kingdom", "all"}:
+            raise ValueError(
+                "Use an English region or Scotland, Wales, Northern Ireland, UK."
+            )
+        if scenario is not None and (
+            not isinstance(scenario, dict)
+            or any(k not in {"shocks", "rate_bias", "area_shocks"} for k in scenario)
+        ):
+            raise ValueError("Invalid starting scenario.")
+        shocks, bias, local = validate_inputs(**(scenario or {}))
+        best = {"shocks": shocks, "rate_bias": bias, "area_shocks": local}
+        cache = {}
+
+        def evaluate(inputs):
+            key = json.dumps(inputs, sort_keys=True)
+            if key not in cache:
+                data = self.run(**inputs)
+                yi = data["years"].index(year)
+                rows = [
+                    (data["values"][variable][i][yi], a)
+                    for i, a in enumerate(data["areas"])
+                    if (match is None or a["region"] == match)
+                    and data["values"][variable][i][yi] is not None
+                ]
+                if not rows:
+                    raise ValueError("No model values in that region.")
+                winner = (min if goal == "min" else max)(rows, key=lambda row: row[0])
+                cache[key] = (winner, len(rows))
+            return cache[key]
+
+        ((value, area), count) = evaluate(best)
+        original = value
+        for _ in range(2):
+            improved = False
+            for parameter in [*VARS, "rate_bias"]:
+                levels = (-1, 0, 1) if parameter == "rate_bias" else (-10, -5, 0, 5, 10)
+                for level in levels:
+                    candidate = {**best, "shocks": {**best["shocks"]}}
+                    if parameter == "rate_bias":
+                        candidate[parameter] = level
+                    else:
+                        candidate["shocks"][parameter] = level
+                    ((trial, trial_area), _) = evaluate(candidate)
+                    if trial < value if goal == "min" else trial > value:
+                        best, value, area = candidate, trial, trial_area
+                        improved = True
+            if not improved:
+                break
+        return {
+            "inputs": best,
+            "year": year,
+            "variable": variable,
+            "goal": goal,
+            "region": region,
+            "area": area,
+            "value": value,
+            "starting_extreme": original,
+            "area_count": count,
+            "evaluations": len(cache),
+            "method": "Best found in a bounded coordinate search of global growth shocks and rate stance; not a guaranteed global optimum or economic prediction.",
         }
 
     def context(self, facts, year, shocks=None, rate_bias=0.0, area_shocks=None):

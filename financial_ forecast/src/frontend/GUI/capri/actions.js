@@ -3,11 +3,11 @@ import {normaliseArea,VARIABLES} from '../forecast.js';
 import {latitudeAt} from '../../map/terrainmath.js';
 import {sfx} from '../terraincontrols.js';
 
-export const ACTION_TYPES=['select_area','set_year','set_layer','set_view','set_overlay','set_simulation','set_shock','set_rate','reset_simulation','play_timeline','pause_timeline','zoom','reset_view','set_sidebar','set_sound'];
+export const ACTION_TYPES=['select_area','set_year','set_layer','set_view','set_overlay','set_simulation','set_shock','optimize_simulation','set_rate','reset_simulation','play_timeline','pause_timeline','zoom','reset_view','set_sidebar','set_sound'];
 const layerIds={income:'terrain',density:'density',employment:'vegetation',borders:'borders'};
 export function validateAction(action) {
   if(!action || !ACTION_TYPES.includes(action.type))throw new Error('Unknown application action.');
-  if(Object.keys(action).some(key=>!['type','target','year','layer','mode','overlay','enabled','variable','value','factor'].includes(key)))throw new Error('Unknown application argument.');
+  if(Object.keys(action).some(key=>!['type','target','year','layer','mode','overlay','enabled','variable','value','factor','region','goal'].includes(key)))throw new Error('Unknown application argument.');
   const enumValue=(key,allowed)=>{if(!allowed.includes(action[key]))throw new Error('Invalid '+key+'.');};
   const number=(key,min,max)=>{if(!Number.isFinite(action[key])||action[key]<min||action[key]>max)throw new Error('Invalid '+key+'.');};
   const target=()=>{if(typeof action.target!=='string'||!action.target.trim()||action.target.length>120)throw new Error('Choose an area by name.');};
@@ -17,7 +17,8 @@ export function validateAction(action) {
   if(action.type==='set_view')enumValue('mode',['2d','3d']);
   if(action.type==='set_overlay')enumValue('overlay',['business_failure','weeklypay','fdi','rate']);
   if(['set_overlay','set_simulation','set_sidebar','set_sound'].includes(action.type)&&typeof action.enabled!=='boolean')throw new Error('Use an on/off value.');
-  if(action.type==='set_shock'){enumValue('variable',Object.keys(VARIABLES));number('value',-3,3);if(action.target!==undefined)target();}
+  if(action.type==='set_shock'){enumValue('variable',Object.keys(VARIABLES));number('value',-10,10);if(action.target!==undefined)target();}
+  if(action.type==='optimize_simulation'){enumValue('variable',['income','density','employment','weeklypay','deaths']);enumValue('goal',['min','max']);number('year',2026,2035);if(!Number.isInteger(action.year)||typeof action.region!=='string'||!action.region.trim()||action.region.length>100)throw new Error('Choose a valid region and simulation year.');}
   if(action.type==='set_rate')number('value',-1,1);
   if(action.type==='zoom')number('factor',.25,4);
   return action;
@@ -45,6 +46,7 @@ export class AppActions {
     // Parameter edits need the model's structured action; a layer-name match
     // must not consume an instruction such as "set income growth in Barnet".
     if(/\b(?:shock|growth|stance|increase|decrease|boost|raise|lower|standard deviations?)\b/.test(text))return null;
+    if(/\b(?:minim(?:um|ise|ize)|maxim(?:um|ise|ize)|lowest|highest|optimis|optimiz)\b/.test(text))return null;
     const result=[];
     const year=text.match(/\b(19\d{2}|20\d{2})\b/);
     if(new Set(text.match(/\b(?:19\d{2}|20\d{2})\b/g)||[]).size>1)return null;
@@ -90,7 +92,7 @@ export class AppActions {
     const requestedLayer=actions.findLast(a=>a.type==='set_layer')?.layer||this.controls.timelineSurface||'income';
     if(requestedYear<2026&&!this.timeline.data[requestedLayer==='borders'?'income':requestedLayer]?.frames.some(f=>Number(f.year)===requestedYear))throw new Error('No recorded '+requestedLayer+' data for '+requestedYear+'. Choose another year or layer.');
     if(actions.some(a=>['select_area','set_year','set_layer','set_simulation','set_shock','set_rate','reset_simulation'].includes(a.type)))this.timeline.pause();
-    let focus=false,play=false;
+    let focus=false,play=false;this.searchResult=null;
     for(const a of actions){
       switch(a.type){
         case 'select_area':this.select(a.target,false);focus=true;break;
@@ -100,6 +102,16 @@ export class AppActions {
         case 'set_overlay':if(a.overlay==='business_failure'){if(this.controls.mistEnabled!==a.enabled)document.querySelector('#mist-toggle').click();}else await this.forecast.setOverlay(a.overlay,a.enabled);break;
         case 'set_simulation':if(a.enabled&&!this.controls.surface)document.querySelector('[data-layer="terrain"]').click();if(this.forecast.enabled!==a.enabled)await this.forecast.setEnabled(a.enabled);break;
         case 'set_shock':{const area=a.target==='selected'?this.getSelected():a.target?this.find(a.target):null;if(a.target&&!area)throw new Error('Select an area first.');if(area){this.select(area.feature.properties.authority_name,false);focus=true;}await this.forecast.edit(a.variable,a.value,area?.feature.properties.authority_code);if(!actions.some(a=>a.type==='set_layer')){if(layerIds[a.variable])document.querySelector(`[data-layer="${layerIds[a.variable]}"]`).click();else if(a.variable==='deaths'){if(!this.controls.mistEnabled)document.querySelector('#mist-toggle').click();}else await this.forecast.setOverlay(a.variable,true);}break;}
+        case 'optimize_simulation':{
+          const response=await fetch('/api/forecast/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({variable:a.variable,goal:a.goal,region:a.region,year:a.year,scenario:this.forecast.appliedInputs||this.forecast.inputs}),signal:AbortSignal.timeout(60000)});
+          const result=await response.json();if(!response.ok)throw new Error(result.error||'Simulation search unavailable.');
+          this.timeline.pause();this.forecast.inputs=result.inputs;this.forecast.scope.value='';this.forecast.syncSliders();
+          if(!this.forecast.enabled)await this.forecast.setEnabled(true);else await this.forecast.reload();
+          if(layerIds[a.variable])document.querySelector(`[data-layer="${layerIds[a.variable]}"]`).click();
+          else if(a.variable==='deaths'){if(!this.controls.mistEnabled)document.querySelector('#mist-toggle').click();}
+          else await this.forecast.setOverlay(a.variable,true);
+          await this.timeline.setYear(result.year);this.select(result.area.name,false);this.forecast.scope.value='';this.forecast.syncSliders();focus=true;this.searchResult=result;break;
+        }
         case 'set_rate':this.forecast.inputs.rate_bias=a.value;this.forecast.syncSliders();if(!this.forecast.enabled)await this.forecast.setEnabled(true);await this.forecast.reload();await this.forecast.setOverlay('rate',true);break;
         case 'reset_simulation':await this.forecast.reset();break;
         case 'play_timeline':play=true;break;
@@ -112,7 +124,7 @@ export class AppActions {
     }
     if((focus||actions.some(a=>['set_view','set_year','set_layer','set_simulation','set_shock'].includes(a.type)))&&this.getSelected())await this.focusSelection();
     if(play&&!this.timeline.timer)this.timeline.play.click();
-    return this.summary();
+    const summary=this.summary();return this.searchResult?summary+' '+(this.searchResult.goal==='min'?'Lowest':'Highest')+' found across '+this.searchResult.area_count+' authorities in '+this.searchResult.region+' after '+this.searchResult.evaluations+' parameter settings. Sliders show the winning global settings. This bounded search does not prove a global optimum.':summary;
   }
   state(){return {layer:this.controls.surface||'borders',view:this.navigation.mode,year:this.timeline.year,simulation:this.forecast.enabled,selected_area:this.getSelected()?.feature.properties.authority_name||null,available_years:this.timeline.series()?.frames.map(f=>Number(f.year))||[],overlays:[...(this.controls.mistEnabled?['business_failure']:[]),...this.forecast.overlays]};}
   summary() {
