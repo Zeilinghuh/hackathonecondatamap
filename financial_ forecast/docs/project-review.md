@@ -1,5 +1,19 @@
 # Project review — 7 November 2026
 
+## Current organisation — 8 November 2026
+
+Supersedes the earlier wake-word notes below: Capri frontend UI/helpers and area actions are consolidated in `GUI/capri/capri.js`, with push-to-talk in `voice.js` and the required audio worklet beside it. Removed the wake matcher, browser recognition fallback, obsolete wake-word test and replacement reaction asset. Original sprite artwork, draggable chat, momentum and idle behaviour remain. Speech runs only during a button hold and flushes its final transcript on release. Vegetation and business-death changes are preserved. Added tooling/report/editor leftovers to `.gitignore`. No tests were run for this change, as requested.
+
+## Follow-up — 8 November 2026
+
+Checked first-party source hashes and the frontend import graph: no identical source files, missing imports or unused modules. `voiceprocessor.js` is a separate AudioWorklet entry loaded by `localrecognition.js`. Kept vendored RichDEM/Earcut, their licenses, source assets and original planning notes. Kept the offline indicator analysis scripts, which serve different research purposes; consolidated their duplicated workbook-reading code into `dataset.py`. Before/after data comparison matches all 689 source-area observations across six indicators. The current indicators have too few complete local-authority rows for regression, so the script now reports that limitation cleanly. Analysis dependencies are an optional uv extra.
+
+Removed stale sidebar explanation references, unused busy events, mischief toggle state/styles and the old decorative reaction overlay. Companion animation shares frame lists, caps visual updates at 30 Hz and stops its animation loop in hidden tabs. GPU terrain buffers and camera rendering remain shared between views.
+
+The browser's cloud speech service failed a generated-audio check. Added optional offline native Vosk recognition behind the existing web server, with one lazily loaded model, bounded audio uploads and expiring/released sessions. Recognition status now distinguishes startup from confirmed capture, shows the heard transcript and accepts the phonetic Capri variants found in real transcription. The optional voice extra and ignored model setup are documented in README and `docs/capri.md`.
+
+Focused verification: wake-phrase regressions; speech session validation, limits and expiry; browser fallback setup and UI; new reaction sprite rendering; permanent 12–22-second idle timing; and a complete generated-audio → real offline transcription → wake → chat → auto-send flow. Muting released the generated audio track and stopped uploads. Chat was mocked for these checks, so no paid provider requests were required.
+
 Reviewed first-party backend/frontend, data flow, tests, uv and Git/LFS setup.
 RichDEM and installed packages remain dependencies; their internals were not
 comprehensively audited or rewritten.

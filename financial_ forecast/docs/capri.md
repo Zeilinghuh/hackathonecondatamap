@@ -1,25 +1,16 @@
 # Capri
 
-Capri is the map's animated companion and chat assistant. Start the existing
-terrain API to serve both the map and chat:
+Hold **Speak to Capri** at the bottom left, speak, then release to convert and send the question. Space or Enter works while the button is focused. Releasing stops microphone capture immediately and flushes the remaining audio before sending. Releasing before the microphone is ready, cancelling the gesture, leaving the tab or closing chat cancels capture. There is no wake phrase, ambient listening, browser speech-service fallback or automatic restart. Typed drafts remain intact.
 
-```powershell
-python src/backend/server.py
-```
+The frontend is grouped under `src/frontend/GUI/capri/`:
 
-The browser's `frontend/GUI/capri.js` controls the gently roaming orb, sprite frames,
-dragging, cursor nudges, character pop-out and talking animation. Click the orb
-or focus it and press Enter to chat. Drag it aside, or use its arrow keys to
-reposition it. A fast cursor sweep nudges it; a slow approach lets you click.
-Escape closes chat. Reduced-motion preferences stop floating and frame cycling.
-The mouth animation accompanies typed replies; this version does not generate
-audio. Opening chat or animating Capri does not send requests to an AI model.
+- `capri.js`: chat, draggable window, orb movement/idle animations and area actions.
+- `voice.js`: push-to-talk capture and submission.
+- `voiceprocessor.js`: the separate browser AudioWorklet, converting audio to bounded 16 kHz PCM chunks.
 
-After selecting an authority, **Ask Capri to explain** in the side panel opens
-chat and submits a question about that area. It sends the selected authority
-code; the server looks up its income observation in the native context index.
-Hovering or selecting alone does not request AI. The button is disabled while
-a reply is being prepared. It works with terrain on or off, in either view.
+The backend remains `src/backend/capri/capri.py` for AI chat and `speech.py` for native local transcription. The voice engine is kept separate because it manages model loading and audio sessions, not chat prompts. Set up voice from the repository root with `uv sync --no-dev --extra voice`, then `uv run --no-dev --extra voice python "financial_ forecast/src/backend/capri/speech.py"`. Start the server using the same voice extra. Model weights stay in ignored `build/speech/`; microphone audio is not saved. Model source/license: https://alphacephei.com/vosk/models (small English 0.15, Apache 2.0).
+
+Capri uses the original sprite sheet for her orb, character, talking and peeking poses. Fling momentum, bouncing, brief reaction labels and subtle sprite transforms remain; the inconsistent replacement reaction sheet has been removed. Drag the chat header to move it; its position stays within the map. Right-click an area for chat/explanations or comparisons. Idle peeks and occasional mischief remain enabled, respecting reduced-motion preferences.
 
 ## Chat connection
 

@@ -1,6 +1,11 @@
 import { cameraBasis, terrainMesh, pickTerrain, latitudeAt, HEIGHT_SCALE, DENSITY_HEIGHT_SCALE } from "../terrainmath.js";
 import { createProgram, uploadBuffer } from "./gl.js";
+<<<<<<< HEAD
 import { AreaLayer } from "./arealayer.js?v=vegetation-contours-1";
+=======
+import { AreaLayer } from "./arealayer.js";
+import { SeaGrid } from "./seagrid.js";
+>>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
 
 const vertexSource = `
 attribute vec3 position;
@@ -147,6 +152,7 @@ export class TerrainRenderer {
     gl.enable(gl.DEPTH_TEST);
     gl.clearColor(0,0,0,1);
     this.areaLayer = new AreaLayer(gl,this.areas);
+    this.seaGrid = new SeaGrid(gl);
     if(this.vegetationData) {
       const {observations,palette,missing}=this.vegetationData;
       this.areaLayer.setVegetation(observations,palette,missing);
@@ -174,10 +180,7 @@ export class TerrainRenderer {
     return {centre, basis, matrix};
   }
 
-  surfaceOf(surface) {
-    if (surface === "mist") surface = "income";
-    return surface && this.meshes[surface] ? surface : null;
-  }
+  surfaceOf(surface) { return surface && this.meshes[surface] ? surface : null; }
 
   updateFrame(name,dem) {
     const gl=this.gl;
@@ -199,6 +202,7 @@ export class TerrainRenderer {
     }
   }
 
+<<<<<<< HEAD
   bindMesh(surface="income") {
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface]);
@@ -228,17 +232,28 @@ export class TerrainRenderer {
   }
 
   draw(view, surface, mode="2d", highlights=[], vegetation=false) {
+=======
+  draw(view, surface, mode="2d", highlights=[], mistEnabled=false, vegetation=false) {
+>>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
     const gl = this.gl;
     if (gl.isContextLost()) return;
-    const mistEnabled = surface === "mist";
     surface = this.surfaceOf(surface);
+    gl.viewport(0,0,this.canvas.width,this.canvas.height);
+    if(vegetation)gl.clearColor(.86,.94,.99,1);
+    else gl.clearColor(11/255,16/255,24/255,1);
+    gl.disable(gl.BLEND);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    const camera=this.camera(view,mode),matrix=camera.matrix;
+    if(mode==="3d" && !vegetation)this.seaGrid.draw(matrix,camera.centre);
     gl.useProgram(this.program);
     this.bindMesh(surface || "income");
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+<<<<<<< HEAD
     gl.clearColor(0,0,0,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const matrix = this.camera(view,mode).matrix;
+=======
+>>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
     gl.uniformMatrix4fv(this.cameraLocation, false, matrix);
     gl.uniform1f(this.raisedLocation, surface && mode === "3d" ? 1 : 0);
     gl.uniform1f(this.contoursLocation,surface ? 1 : 0);
@@ -251,7 +266,14 @@ export class TerrainRenderer {
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3}[surface] ?? 0]);
     gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
+    if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation);
     if (mistEnabled) {
+      gl.useProgram(this.program);
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface || "income"]);
+      for (const [index,size,offset] of [[0,3,0],[1,3,12],[2,2,24]]) {
+        gl.enableVertexAttribArray(index); gl.vertexAttribPointer(index,size,gl.FLOAT,false,32,offset);
+      }
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.depthFunc(gl.LEQUAL);
@@ -265,8 +287,11 @@ export class TerrainRenderer {
       gl.disable(gl.BLEND);
       gl.activeTexture(gl.TEXTURE0);
     }
+<<<<<<< HEAD
     if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation,
       vegetation ? () => this.drawVegetationContours(matrix,view) : undefined);
+=======
+>>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
   }
 
   pan(view, dx, dy) {

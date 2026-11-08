@@ -55,7 +55,7 @@
       <aside id="sidebar" class="controls-panel">
         <p class="eyebrow">UK // ECON TERRAIN</p>
         <h1>FINANCIAL<br>FORECAST</h1>
-        <p class="intro">Income shapes the hills, population density raises a second terrain, and employment greens the landscape. Business-death rates appear as mist. Explore recorded years to watch the landscape change.</p>
+        <p class="intro">Income per head shapes the terrain; population density and employment offer other views. Toggle the business-death mist over the map, and explore recorded years to watch the data change.</p>
 
         <div class="view-switch" role="group" aria-label="Map view">
           <button id="view-2d" aria-pressed="true" disabled>2D MAP</button>
@@ -74,8 +74,8 @@
 
         <div class="layer-row weather-row">
           <span id="weather-label">Weather</span>
-          <div class="layer-switch" role="group" aria-labelledby="weather-label">
-            <button data-layer="mist" aria-pressed="false">MIST</button>
+          <div class="weather-switch" role="group" aria-labelledby="weather-label">
+            <button id="mist-toggle" type="button" aria-pressed="false">MIST</button>
           </div>
         </div>
 
@@ -96,7 +96,6 @@
             <div><dt>Income per head</dt><dd>—</dd></div>
             <div><dt>Population density</dt><dd>—</dd></div>
           </dl>
-          <button id="explain-area" class="explain-area" disabled>Ask Capri to explain</button>
         </section>
 
         <p id="source-note" class="source-note"></p>

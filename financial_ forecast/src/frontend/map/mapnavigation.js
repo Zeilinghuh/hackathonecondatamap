@@ -20,13 +20,13 @@ export class MapNavigation {
     listen("dblclick", event => { event.preventDefault(); this.zoom(1.8,point(event)); });
     listen("contextmenu", event => event.preventDefault());
     listen("pointerdown", event => {
-      if ((event.button !== 0 && !(this.mode === "3d" && event.button === 2)) || this.pointers.size >= 2) return;
+      if (event.button !== 0 || this.pointers.size >= 2) return;
       event.currentTarget.focus({preventScroll:true});
       event.currentTarget.setPointerCapture(event.pointerId);
       const next = point(event);
       if (!this.pointers.size) {
         this.start = next; this.dragged = false;
-        this.rotating = this.mode === "3d" && (event.shiftKey || event.button === 2);
+        this.rotating = this.mode === "3d" && event.shiftKey;
       }
       this.pointers.set(event.pointerId,next);
       if (this.pointers.size === 2) { this.pinch = this.pinchState(); this.dragged = true; }
