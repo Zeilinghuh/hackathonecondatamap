@@ -58,6 +58,13 @@ or repeatedly serializing it. Capri reads the small indexed context.
 
 ## Cache
 
+`/api/history` lazily generates/caches compact annual RichDEM grids and their
+authority observations. C++ uses one normalization range per indicator across
+all years; no repeated geometry, slope arrays or contour segments are sent for
+history frames. The browser reuses existing GPU buffers/textures when the year
+changes. Historical chat uses a small year-specific context index. History
+products use the `history` prefix beside the normal terrain cache files.
+
 All outputs live under ignored `build/terrain/`:
 
 - `terrainDEM.exe`/`terrainDEM` and `native-build.key`

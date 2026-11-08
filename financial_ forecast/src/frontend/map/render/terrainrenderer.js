@@ -114,6 +114,7 @@ export class TerrainRenderer {
     gl.uniform1i(gl.getUniformLocation(this.program, "mistTexture"), 2);
     // Upload only at creation/restoration, never when moving the camera.
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    this.maxTextureSize=maxSize;
     this.textures = [this.textureSource.base, this.textureSource.terrain, this.textureSource.matched,
       this.textureSource.densityTerrain, this.textureSource.mist].map(source => {
       const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -157,6 +158,26 @@ export class TerrainRenderer {
     return surface && this.meshes[surface] ? surface : null;
   }
 
+  updateFrame(name,dem) {
+    const gl=this.gl;
+    this.meshes[name]=terrainMesh(dem,name==="density"?DENSITY_HEIGHT_SCALE:HEIGHT_SCALE);
+    if(gl.isContextLost())return;
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[name]);
+    gl.bufferSubData(gl.ARRAY_BUFFER,0,this.meshes[name].vertices);
+    for(const [index,source] of [[name==="density"?3:1,name==="density"?this.textureSource.densityTerrain:this.textureSource.terrain],[2,this.textureSource.matched]]) {
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.textures[index]);
+      let image=source;
+      if(source.width>this.maxTextureSize || source.height>this.maxTextureSize) {
+        image=this.frameUploadCanvas??=document.createElement("canvas");
+        const ratio=Math.min(this.maxTextureSize/source.width,this.maxTextureSize/source.height);
+        if(image.width!==Math.floor(source.width*ratio))image.width=Math.floor(source.width*ratio);
+        if(image.height!==Math.floor(source.height*ratio))image.height=Math.floor(source.height*ratio);
+        const context=image.getContext("2d");context.clearRect(0,0,image.width,image.height);context.drawImage(source,0,0,image.width,image.height);
+      }
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
+    }
+  }
+
   draw(view, surface, mode="2d", highlights=[]) {
     const gl = this.gl;
     if (gl.isContextLost()) return;
@@ -179,7 +200,8 @@ export class TerrainRenderer {
     gl.uniform1f(this.heightScaleLocation,surface === "density" ? DENSITY_HEIGHT_SCALE : HEIGHT_SCALE);
     gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
     gl.uniform1f(this.mistPassLocation, 0);
-    gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3}[surface] ?? 0]);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3}[surface] ?? 0]);
     gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
     if (mistEnabled) {
       gl.enable(gl.BLEND);

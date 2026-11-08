@@ -129,6 +129,27 @@ export class TerrainTexture {
     return height === null ? null : densityFromHeight(height, this.densityRange);
   }
 
+  updateFrame(name,frame,range,features,reference) {
+    if(name==="income" && !this.historyPalette) {
+      const sorted=[...reference.values].sort((a,b)=>a-b);
+      this.colourRange=[sorted[Math.floor(sorted.length*.02)],sorted[Math.floor(sorted.length*.98)]];
+      if(this.colourRange[1]<=this.colourRange[0])this.colourRange=[0,1000];
+      this.peakHeight=reference.values.reduce((max,value)=>Math.max(max,value),0);this.historyPalette=true;
+    }
+    const density=name==="density",field=density?"population_density":"income_per_head";
+    const dem={...(density?this.densityDem:this.dem),values:frame.values};
+    if(density){this.densityDem=dem;this.densityRange=range;}else this.dem=dem;
+    const mask=this.landMask(features.filter(f=>f.properties[field]!==null));
+    const image=this.rasterise(dem,value=>density?this.densityPalette[this.densityBandAt(value)]:this.palette[this.colourBandAt(value)]);
+    const canvas=density?this.densityTerrain:this.terrain,context=canvas.getContext("2d");
+    context.clearRect(0,0,canvas.width,canvas.height);context.drawImage(this.base,0,0);
+    const [west,south,east,north]=dem.bounds,top=mercator(north),span=top-mercator(south);
+    this.drawFill(context,([lon,lat])=>[(lon-west)/(east-west)*canvas.width,(top-mercator(lat))/span*canvas.height],image,mask);
+    const matched=this.matched.getContext("2d");matched.resetTransform();matched.clearRect(0,0,this.matched.width,this.matched.height);
+    matched.scale(this.matched.width,this.matched.height);matched.fillStyle="white";matched.fill(mask,"nonzero");
+    return dem;
+  }
+
   rasterise(dem, colourAt) {
     const canvas = document.createElement("canvas");
     canvas.width = dem.width; canvas.height = dem.height;

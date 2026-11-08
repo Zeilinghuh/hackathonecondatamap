@@ -8,6 +8,8 @@ int main(int argc, char** argv) {
     std::ios::sync_with_stdio(false);
     try {
         if (argc == 1) terrain::readDEM(std::cin, std::cout);
+        else if (argc == 8 && std::string(argv[1]) == "--history")
+            terrain::buildHistory(argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
         else if (argc == 8 && std::string(argv[1]) == "--build")
             terrain::buildProduct(argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
         else if (argc == 4 && std::string(argv[1]) == "--income")

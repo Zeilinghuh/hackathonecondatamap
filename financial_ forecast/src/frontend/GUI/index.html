@@ -65,6 +65,12 @@
 
         <p id="control-note" class="control-note">Blue lows → cyan → green → yellow → red → dark crimson peaks.</p>
 
+        <section class="timeline" aria-label="Historical data">
+          <div class="year-heading"><span>Data year</span><output id="year-label" for="year-slider">Latest</output><button id="year-play" aria-pressed="false" disabled>Play</button></div>
+          <input id="year-slider" type="range" aria-label="Data year" min="0" max="0" value="0" step="1" disabled />
+          <div class="year-range"><span id="year-oldest">Oldest</span><span id="year-newest">Newest</span></div>
+          <p id="year-note">Loading historical years…</p>
+        </section>
         <section class="details" aria-live="polite">
           <p class="details-label">Select an area</p>
           <h2 id="area-name">Explore the map</h2>
