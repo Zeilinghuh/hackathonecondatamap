@@ -4,6 +4,12 @@ A UK income landscape with 2D contours, a 3D view, a population density layer
 and Capri as a chat companion. Heights describe gross disposable household
 income, not physical altitude.
 
+The **VEGETATION** layer shades employment rates from pale to dark green, with
+small CSS trees only in the highest band (85%+). Use **Data year** or **Play** to explore 2004–2023,
+then select an authority to see its rate and annual change in percentage points.
+The figures come from ONS/NISRA employment observations for ages 16–64; the
+vegetation is an economic metaphor. Northern Ireland is available for 2023 only.
+
 ## Run
 
 Use Python 3.11.7 and a C++17 compiler (`g++` or `clang++`) on PATH.
@@ -21,17 +27,38 @@ uv run --no-dev python "financial_ forecast/src/backend/server.py"
 ```
 
 Open [the local app](http://127.0.0.1:8000). No frontend build, Node runtime,
-Python RichDEM, GDAL or extra Python runtime packages are needed. The browser
+Python RichDEM, GDAL or extra Python runtime packages are needed for the map or typed chat. Offline voice uses an optional extra described below. The browser
 uses WebGL for both map views. The first request compiles native code if needed;
 subsequent starts reuse generated terrain.
 
-Drag/arrow keys pan. In 3D, Shift-drag/right-drag or Shift-arrow rotates.
+Drag/arrow keys pan. In 3D, Shift-drag or Shift-arrow rotates. Right-click an area for Capri actions and comparisons.
 Scroll/+/- zoom; two fingers pan/pinch; UK view/0 resets. **Map layer** picks
 TERRAIN (income heights), DENSITY (a second terrain from log₁₀ ONS residents
 per km², with its own contours, in 2D and 3D) or BORDERS. On BORDERS,
-hover an authority for a cyan glow, click to select it, then choose **Ask Capri
-to explain** in the side panel. That button submits a chat request about the
-selected authority; hovering does not call AI.
+hover an authority for a cyan glow. Right-click an area and choose **Explain this area** to submit a question to Capri; hovering does not call AI.
+
+For reliable local voice, run once from the repository root:
+
+```powershell
+uv sync --no-dev --extra voice
+uv run --no-dev --extra voice python "financial_ forecast/src/backend/capri/speech.py"
+uv run --no-dev --extra voice python "financial_ forecast/src/backend/server.py"
+```
+
+The setup downloads a 40 MB English model into ignored `build/speech/`.
+Enable MIC, allow microphone access, and say **Hey Capri** followed by a question.
+Questions auto-send after a pause. Mute stops capture; hidden tabs pause it.
+When local voice is installed, speech is processed on the local app server.
+Browser speech recognition remains a fallback when local voice is not installed.
+The voice label confirms when capture actually starts and shows what was heard.
+Drag Capri's chat header to reposition it. Fling the orb for dizzy/annoyed reactions;
+idle peeking and occasional mischief are always enabled (reduced motion is respected).
+
+Use **Data year** to drag, scroll or step through the available observations;
+**Play** advances one year at a time. Income covers 1997–2024 and density
+1991–2025. History loads once in the background and is cached. Height/colour
+scales stay fixed across years. Missing values remain unshaded; income is
+nominal (not inflation-adjusted) and all years use the current map boundaries.
 
 ## Layout
 
@@ -69,6 +96,8 @@ See [the terrain guide](financial_%20forecast/docs/terrain.md),
 [Capri guide](financial_%20forecast/docs/capri.md) and
 [project review](financial_%20forecast/docs/project-review.md).
 The original edited planning documents are preserved under `docs/planning/`.
+
+The scripts under `src/backend/matrixcoefffitting/` are offline research, not obsolete runtime code. They share `dataset.py`; install `uv sync --extra analysis` to use their pandas/openpyxl dependencies. They do not affect map heights or forecasts. Regression reports insufficient overlapping data rather than returning invalid coefficients.
 
 The large GeoJSON uses Git LFS: run `git lfs pull` after cloning if it is a
 pointer instead of the real boundary file. Chat credentials belong in the ignored

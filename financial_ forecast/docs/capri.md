@@ -1,5 +1,17 @@
 # Capri
 
+The map's MIC OFF button enables wake-word listening in English (UK). Say “Hey Capri” followed by a question: Capri opens chat, then automatically sends finalized speech after a 1.2-second pause or recognition ending. Saying only the wake phrase opens chat without submitting an empty question. MUTE MIC stops capture and discards pending speech immediately. Typed drafts are preserved when voice sends a question.
+
+Voice prefers the local Vosk service when installed. Browser microphone audio is converted to 16 kHz mono PCM in an AudioWorklet and sent in bounded half-second chunks to the local server, where the native recognizer keeps one model in memory. Audio is not written to disk. Sessions expire after 30 seconds idle, with at most four active sessions. Muting closes capture and deletes the session. Browser speech recognition is a fallback; it may process audio online. Local browser speech packs are preferred when that fallback exposes a usable English model. Voice needs localhost or HTTPS. Hidden tabs and Capri's replies pause capture. Closing chat cancels the current question but leaves wake-word mode enabled. Permission/service errors switch listening off with a retry message. Capri replies in text with her talking animation.
+
+Setup from the repository root: `uv sync --no-dev --extra voice`, then `uv run --no-dev --extra voice python "financial_ forecast/src/backend/capri/speech.py"`. This explicit command downloads the official English model once; HTTP requests never download it. Start the server with the same `--extra voice`. Weights stay in ignored `build/speech/`. Model source/license: https://alphacephei.com/vosk/models (small English 0.15, Apache 2.0).
+
+The UI shows Starting until the engine confirms readiness, then a listening indicator and a Heard transcript. Wake matching accepts common variants (Capree, Cap Ree, coppery), punctuation and a wake phrase split across recognition sessions. Empty or unrelated speech is never submitted. If using browser recognition, an unsupported UK English service retries US English once. Startup timeouts and speech-service errors are displayed instead of leaving a false listening status.
+
+Drag the chat header to reposition it, or focus the header and use arrow keys. Its position is retained during the session and clamped when the map resizes. Voice controls sit outside the message form, whose textarea keeps its own full-width column.
+
+Right-click an area and choose Explain this area for a direct explanation. The duplicate sidebar explanation button has been removed.
+
 Capri is the map's animated companion and chat assistant. Start the existing
 terrain API to serve both the map and chat:
 
@@ -10,15 +22,15 @@ python src/backend/server.py
 The browser's `frontend/GUI/capri.js` controls the gently roaming orb, sprite frames,
 dragging, cursor nudges, character pop-out and talking animation. Click the orb
 or focus it and press Enter to chat. Drag it aside, or use its arrow keys to
-reposition it. A fast cursor sweep nudges it; a slow approach lets you click.
-Escape closes chat. Reduced-motion preferences stop floating and frame cycling.
+reposition it. Drag and release quickly to fling the orb: momentum decays and wall hits bounce. Throws change the actual orb sprite to spiral/crossed eyes; another quick throw produces a scowling face and shake. Reactions last 4.2 seconds, with visible DIZZY or SERIOUSLY? labels. The four-frame reaction strip is `GUI/assets/capri-reactions.svg`; the existing character sheet supplies cursor-watching peeks. Idle peeking occurs after 12–22 seconds, with a small chance of briefly approaching the cursor. Mischief is always enabled; there is no toggle. A fast cursor sweep nudges it; a slow approach lets you click.
+Escape closes chat. Reduced-motion preferences stop floating, idle interruptions and frame cycling. Companion updates are capped at 30 Hz and suspended in hidden tabs; frame lists are shared rather than allocated every frame.
 The mouth animation accompanies typed replies; this version does not generate
 audio. Opening chat or animating Capri does not send requests to an AI model.
 
-After selecting an authority, **Ask Capri to explain** in the side panel opens
+Right-clicking an authority and choosing **Explain this area** opens
 chat and submits a question about that area. It sends the selected authority
 code; the server looks up its income observation in the native context index.
-Hovering or selecting alone does not request AI. The button is disabled while
+Hovering or selecting alone does not request AI. Further explanations wait while
 a reply is being prepared. It works with terrain on or off, in either view.
 
 ## Chat connection

@@ -20,13 +20,13 @@ export class MapNavigation {
     listen("dblclick", event => { event.preventDefault(); this.zoom(1.8,point(event)); });
     listen("contextmenu", event => event.preventDefault());
     listen("pointerdown", event => {
-      if ((event.button !== 0 && !(this.mode === "3d" && event.button === 2)) || this.pointers.size >= 2) return;
+      if (event.button !== 0 || this.pointers.size >= 2) return;
       event.currentTarget.focus({preventScroll:true});
       event.currentTarget.setPointerCapture(event.pointerId);
       const next = point(event);
       if (!this.pointers.size) {
         this.start = next; this.dragged = false;
-        this.rotating = this.mode === "3d" && (event.shiftKey || event.button === 2);
+        this.rotating = this.mode === "3d" && event.shiftKey;
       }
       this.pointers.set(event.pointerId,next);
       if (this.pointers.size === 2) { this.pinch = this.pinchState(); this.dragged = true; }
@@ -72,7 +72,13 @@ export class MapNavigation {
         this.changed();
       }
     });
-    new ResizeObserver(() => this.resize()).observe(panel);
+    new ResizeObserver(() => {
+      // Animate the camera/layout, but allocate the GPU drawing buffer only
+      // after layout settles. Repeated allocations can blank the canvas.
+      this.resize(false,false);
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer=setTimeout(()=>this.resize(),100);
+    }).observe(panel);
     this.resize(true);
   }
 
@@ -95,11 +101,18 @@ export class MapNavigation {
     this.changed();
   }
 
-  resize(reset = false) {
+  resize(reset = false, resizeBuffer = true) {
     const {width,height} = this.panel.getBoundingClientRect(), previous = this.view;
-    if (!reset && previous?.width === width && previous?.height === height) return;
     const ratio = Math.min(2,window.devicePixelRatio || 1);
-    for (const canvas of this.canvases) { canvas.width = Math.round(width*ratio); canvas.height = Math.round(height*ratio); }
+    let changed=false;
+    if(resizeBuffer)for(const canvas of this.canvases) {
+      if(canvas.width!==Math.round(width*ratio)){canvas.width=Math.round(width*ratio);changed=true;}
+      if(canvas.height!==Math.round(height*ratio)){canvas.height=Math.round(height*ratio);changed=true;}
+    }
+    if (!reset && previous?.width === width && previous?.height === height) {
+      if(changed)this.onChange();
+      return;
+    }
     const [west,south,east,north] = this.bounds, top = mercator(north), span = top-mercator(south);
     const fitScale = Math.min((width-56)/(east-west),(height-56)/span);
     const zoom = previous && !reset ? previous.zoom : 1, scale = fitScale*zoom;

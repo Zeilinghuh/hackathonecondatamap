@@ -97,7 +97,12 @@ def ensure_native_binary() -> Path:
 
 
 # Named workbook tabs the native pipeline reads, by output file stem.
-WORKBOOK_TABS = {"income": "16", "density": "3"}
+WORKBOOK_TABS = {
+    "income": "16",
+    "density": "3",
+    "employment_gb": "11",
+    "employment_ni": "12",
+}
 
 
 def unpack_workbook_xml(
@@ -146,25 +151,31 @@ class TerrainStore:
         self._lock = threading.Lock()
         self._response: tuple[bytes, bytes, str] | None = None
         self._facts: dict | None = None
+        self._history = None
+        self._history_lock = threading.Lock()
 
-    def _build(self, signature: str) -> None:
+    def _build(self, signature: str, history: bool = False) -> None:
         binary = ensure_native_binary()
         self.build_root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=self.build_root) as directory:
             temporary = Path(directory)
             strings, sheets = unpack_workbook_xml(WORKBOOK_PATH, temporary)
             product, context = temporary / "terrain.json", temporary / "context.json"
+            command = [
+                str(binary),
+                "--history" if history else "--build",
+                str(BOUNDARY_PATH),
+                str(strings),
+                str(sheets["income"]),
+                str(sheets["density"]),
+            ]
+            if not history:
+                command.extend(
+                    [str(sheets["employment_gb"]), str(sheets["employment_ni"])]
+                )
+            command.extend([str(product), str(context)])
             result = subprocess.run(
-                [
-                    str(binary),
-                    "--build",
-                    str(BOUNDARY_PATH),
-                    str(strings),
-                    str(sheets["income"]),
-                    str(sheets["density"]),
-                    str(product),
-                    str(context),
-                ],
+                command,
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -178,10 +189,11 @@ class TerrainStore:
                 gzip.compress(product.read_bytes(), compresslevel=6, mtime=0)
             )
             (temporary / "terrain-cache.key").write_text(signature)
+            prefix = "history" if history else "terrain"
             for source, target in (
-                ("terrain.json.gz", "terrain.json.gz"),
-                ("context.json", "terrain-context.json"),
-                ("terrain-cache.key", "terrain-cache.key"),
+                ("terrain.json.gz", prefix + ".json.gz"),
+                ("context.json", prefix + "-context.json"),
+                ("terrain-cache.key", prefix + "-cache.key"),
             ):
                 (temporary / source).replace(self.build_root / target)
 
@@ -227,7 +239,37 @@ class TerrainStore:
         self.response()
         return dict(self._facts["metadata"])
 
-    def context(self, selected: object = None) -> dict:
+    def history_response(self) -> tuple[bytes, bytes, str]:
+        with self._history_lock:
+            if self._history is None:
+                signature = fingerprint(
+                    [*native_inputs(), Path(__file__), WORKBOOK_PATH, BOUNDARY_PATH]
+                )
+                key = self.build_root / "history-cache.key"
+                path = self.build_root / "history.json.gz"
+                try:
+                    if key.read_text() != signature:
+                        raise ValueError("Stale history cache")
+                    compressed = path.read_bytes()
+                    content = gzip.decompress(compressed)
+                    self._history_context = json.loads(
+                        (self.build_root / "history-context.json").read_bytes()
+                    )
+                except (OSError, ValueError, EOFError):
+                    self._build(signature, True)
+                    compressed = path.read_bytes()
+                    content = gzip.decompress(compressed)
+                    self._history_context = json.loads(
+                        (self.build_root / "history-context.json").read_bytes()
+                    )
+                self._history = (
+                    content,
+                    compressed,
+                    'W/"' + hashlib.sha256(content).hexdigest() + '"',
+                )
+            return self._history
+
+    def context(self, selected: object = None, year: object = None) -> dict:
         self.response()
         metadata = self._facts["metadata"]
         facts = {
@@ -238,9 +280,43 @@ class TerrainStore:
                 "method",
                 "matched_authorities",
                 "population_density",
+                "employment",
             )
             if key in metadata
         }
         if isinstance(selected, str) and selected in self._facts["authorities"]:
-            facts["selected_authority"] = self._facts["authorities"][selected]
+            facts["selected_authority"] = dict(self._facts["authorities"][selected])
+        if year is not None:
+            self.history_response()
+            year = str(year)
+            if not any(year in surface for surface in self._history_context.values()):
+                raise ValueError("Unknown historical year")
+            facts["source_year"] = year
+            facts["historical_note"] = (
+                "Recorded nominal income; fixed current boundaries; no inflation adjustment. Missing observations are unavailable."
+            )
+            if "population_density" in facts:
+                facts["population_density"] = {
+                    **facts["population_density"],
+                    "source_year": year,
+                }
+            if "selected_authority" in facts:
+                for surface, field in (
+                    ("income", "income_per_head"),
+                    ("density", "population_density"),
+                ):
+                    facts["selected_authority"][field] = (
+                        self._history_context[surface].get(year, {}).get(selected)
+                    )
+                observations = self._facts.get("employment", {})
+                rate = observations.get(year, {}).get(selected)
+                previous = observations.get(str(int(year) - 1), {}).get(selected)
+                facts["selected_authority"]["employment_rate"] = rate
+                facts["selected_authority"]["employment_change_pp"] = (
+                    round(rate - previous, 6)
+                    if rate is not None and previous is not None
+                    else None
+                )
+            if "employment" in facts:
+                facts["employment"] = {**facts["employment"], "source_year": year}
         return facts

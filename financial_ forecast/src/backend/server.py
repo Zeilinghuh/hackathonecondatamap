@@ -11,8 +11,11 @@ data, simplifies boundaries, generates RichDEM terrain and writes the product.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import os
 import re
+import socket
 import subprocess
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -20,11 +23,24 @@ from typing import Any, ClassVar
 from urllib.parse import urlparse
 
 from capri.capri import CapriError, CapriService
+from capri.speech import SpeechService
 from terrain_service import PROJECT_ROOT, TerrainStore
 
 WEB_ROOT = PROJECT_ROOT / "src" / "frontend"
+BUSINESS_DEATHS_PATH = PROJECT_ROOT / "assets" / "data" / "business_deaths.csv"
 TERRAIN = TerrainStore()
 CAPRI = CapriService(PROJECT_ROOT)
+SPEECH = SpeechService()
+
+
+class LocalHTTPServer(ThreadingHTTPServer):
+    """Windows SO_REUSEADDR can silently leave requests on an older server."""
+
+    def server_bind(self) -> None:
+        if os.name == "nt":
+            self.allow_reuse_address = False
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 
 class TerrainRequestHandler(SimpleHTTPRequestHandler):
@@ -49,6 +65,36 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
         if route == "/api/capri/status":
             self.send_json(CAPRI.status())
             return
+        if route == "/api/capri/speech/status":
+            self.send_json(SPEECH.status())
+        if route == "/api/business-deaths":
+            try:
+                with BUSINESS_DEATHS_PATH.open(newline="", encoding="utf-8-sig") as source:
+                    rows = []
+                    for row in csv.DictReader(source):
+                        value = (row.get("business_death_rate_percent") or "").strip()
+                        if row.get("year") != "2024" or not value:
+                            continue
+                        rows.append(
+                            {
+                                "area_code": row["area_code"],
+                                "area_name": row["area_name"],
+                                "rate_percent": float(value),
+                            }
+                        )
+                self.send_json(
+                    {
+                        "source_year": "2024",
+                        "metric": "Business deaths as a percentage of active businesses",
+                        "areas": rows,
+                    }
+                )
+            except (OSError, KeyError, ValueError) as error:
+                self.send_json(
+                    {"error": f"Could not read business-deaths data: {error}"},
+                    status=HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
+            return
         if route == "/capri-assets/sprites.png":
             sprite = PROJECT_ROOT / "assets" / "visual" / "capri" / "sprites.png"
             if not sprite.is_file():
@@ -61,9 +107,13 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
             return
-        if route == "/api/terrain":
+        if route in {"/api/terrain", "/api/history"}:
             try:
-                content, compressed, etag = TERRAIN.response()
+                content, compressed, etag = (
+                    TERRAIN.history_response()
+                    if route == "/api/history"
+                    else TERRAIN.response()
+                )
                 unchanged = self.headers.get("If-None-Match") == etag
                 encodings = self.headers.get("Accept-Encoding", "").lower()
                 use_gzip = any(
@@ -104,23 +154,31 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
-    def do_POST(self) -> None:
-        if urlparse(self.path).path != "/api/capri/chat":
-            self.send_json({"error": "Unknown endpoint."}, HTTPStatus.NOT_FOUND)
-            return
-        # Chat is initiated by this local app, not cross-site form submissions.
-        origin = self.headers.get("Origin")
-        if origin and origin not in {
+    def local_request(self) -> bool:
+        return self.headers.get("Origin") in {
+            None,
             f"http://127.0.0.1:{self.server.server_port}",
             f"http://localhost:{self.server.server_port}",
-        }:
+        }
+
+    def do_POST(self) -> None:
+        route = urlparse(self.path).path
+        if route not in {"/api/capri/chat", "/api/capri/speech"}:
+            self.send_json({"error": "Unknown endpoint."}, HTTPStatus.NOT_FOUND)
+            return
+        if not self.local_request():
             self.send_json(
-                {"error": "This chat request must come from the local app."},
+                {"error": "This request must come from the local app."},
                 HTTPStatus.FORBIDDEN,
             )
             return
         try:
             size = int(self.headers.get("Content-Length", "0"))
+            if route == "/api/capri/speech":
+                if not 0 <= size <= 32000 or self.headers.get_content_type() != "application/octet-stream":
+                    raise ValueError("Send at most one second of 16 kHz mono PCM audio.")
+                self.send_json(SPEECH.feed(self.headers.get("X-Speech-Session", ""), self.rfile.read(size)))
+                return
             if not 0 < size <= 32768:
                 raise CapriError("The chat request is too large or empty.", 413)
             if self.headers.get_content_type() != "application/json":
@@ -128,19 +186,34 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             payload = json.loads(self.rfile.read(size))
             CAPRI.validate(payload)
             self.send_json(
-                CAPRI.reply(payload, TERRAIN.context(payload.get("selected_authority")))
+                CAPRI.reply(
+                    payload,
+                    TERRAIN.context(
+                        payload.get("selected_authority"), payload.get("selected_year")
+                    ),
+                )
             )
         except CapriError as error:
             self.send_json({"error": str(error)}, HTTPStatus(error.status))
         except (ValueError, UnicodeError):
             self.send_json(
-                {"error": "The chat request wasn't valid JSON."}, HTTPStatus.BAD_REQUEST
+                {"error": "Invalid speech or chat request."}, HTTPStatus.BAD_REQUEST
             )
         except (OSError, RuntimeError, subprocess.SubprocessError):
             self.send_json(
                 {"error": "The map context is temporarily unavailable."},
                 HTTPStatus.SERVICE_UNAVAILABLE,
             )
+
+    def do_DELETE(self) -> None:
+        if urlparse(self.path).path != "/api/capri/speech":
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        if not self.local_request():
+            self.send_json({"error": "This request must come from the local app."}, HTTPStatus.FORBIDDEN)
+            return
+        SPEECH.close(self.headers.get("X-Speech-Session", ""))
+        self.send_json({"closed": True})
 
     def send_json(
         self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK
@@ -170,7 +243,13 @@ def main() -> None:
         print(json.dumps(metadata, indent=2))
         return
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), TerrainRequestHandler)
+    try:
+        server = LocalHTTPServer(("127.0.0.1", args.port), TerrainRequestHandler)
+    except OSError:
+        parser.exit(
+            1,
+            f"Could not open port {args.port}. Stop the running map server first, or choose another --port.\n",
+        )
     print(f"Terrain map available at http://127.0.0.1:{args.port}")
     try:
         server.serve_forever()
