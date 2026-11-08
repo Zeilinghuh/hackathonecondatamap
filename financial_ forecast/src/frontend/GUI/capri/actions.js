@@ -3,7 +3,7 @@ import {normaliseArea,VARIABLES} from '../forecast.js';
 import {latitudeAt,mercator} from '../../map/terrainmath.js';
 import {sfx} from '../terraincontrols.js';
 
-export const ACTION_TYPES=['select_area','locate_user','show_map_position','focus_region','set_year','set_layer','set_view','set_overlay','set_simulation','set_shock','optimize_simulation','set_rate','reset_simulation','play_timeline','pause_timeline','zoom','reset_view','set_sidebar','set_sound'];
+export const ACTION_TYPES=['select_area','locate_user','clear_location','show_map_position','focus_region','set_year','set_layer','set_view','set_overlay','set_simulation','set_shock','optimize_simulation','set_rate','reset_simulation','play_timeline','pause_timeline','zoom','reset_view','set_sidebar','set_sound'];
 const layerIds={income:'terrain',density:'density',employment:'vegetation',borders:'borders'};
 export function validateAction(action) {
   if(!action || !ACTION_TYPES.includes(action.type))throw new Error('Unknown application action.');
@@ -106,6 +106,7 @@ export class AppActions {
     let focus=false,play=false,regionFocused=false;this.searchResult=null;
     for(const a of actions){
       switch(a.type){
+        case 'clear_location':this.positionPin=null;this.deviceLocation=null;this.locationMarker?.remove();this.locationNote?.remove();this.locationMarker=null;this.locationNote=null;break;
         case 'locate_user':await this.locateUser();regionFocused=true;break;
         case 'show_map_position':{const camera=this.state().camera;await this.pinPosition({longitude:camera.longitude,latitude:camera.latitude,kind:'map',source:'current map centre'});regionFocused=true;break;}
         case 'select_area':this.select(a.target,false);focus=true;regionFocused=false;break;

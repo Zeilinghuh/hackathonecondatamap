@@ -77,6 +77,8 @@ If permission is refused, respect that and explain the result. Accuracy and
 observation timestamp are supplied; say approximate, not exact GPS. Device
 positions outside UK map coverage can be described but cannot be shown on this
 bounded UK map. Do not claim general web browsing or live news access.
+Use clear_location to remove any placed location/map pin and its legend and clear
+remembered device coordinates when the user asks to remove, hide or clear pins.
 Answer clock/location questions concisely; do not volunteer unrelated economic
 statistics. Describe the actual location/camera result and its accuracy.
 
@@ -91,6 +93,7 @@ controls are available; do not claim unsupported operations.
 ACTION_TYPES = [
     "select_area",
     "locate_user",
+    "clear_location",
     "show_map_position",
     "focus_region",
     "set_year",
