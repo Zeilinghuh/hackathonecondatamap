@@ -37,7 +37,7 @@ export class CapriCompanion {
         </button>
       </div>
       <section id="capri-chat" class="capri-chat" aria-label="Chat with Capri" hidden>
-        <header class="capri-header"><div><strong>CAPRI // Support</strong><span id="capri-status" class="capri-status" role="status">Checking link…</span></div><button class="capri-close" aria-label="Close Capri chat">×</button></header>
+        <header class="capri-header"><div><strong>CAPRI // FORECAST ASSISTANT</strong><span id="capri-status" class="capri-status" role="status">Checking link…</span></div><button class="capri-close" aria-label="Close Capri chat">×</button></header>
         <div id="capri-messages" class="capri-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
         <p id="capri-context" class="capri-context">Context: UK household income</p>
         <form class="capri-form"><textarea id="capri-input" class="capri-input" aria-label="Message Capri" placeholder="Hey Capri…" rows="2" maxlength="2000" required></textarea><button class="capri-send" type="submit">SEND</button></form>
@@ -61,7 +61,7 @@ export class CapriCompanion {
     this.speech.querySelector(".bubble-close").addEventListener("click",()=>this.dismissBubble());
     this.speech.querySelector(".bubble-talk").addEventListener("click",()=>{const action=this.speechAction;this.dismissBubble();if(action)action();else this.setOpen(true);});
     if(this.history.length)for(const entry of this.history)this.appendMessage(entry.role,entry.content);
-    else this.appendMessage("assistant", "Hey, I'm Capri. Try ‘find Barnet in 2019’, ‘show employment in 3D’ or ask me to edit a simulation. Hold Speak to Capri to talk.");
+    else this.appendMessage("assistant", "Hey~ I’m Capri, your resident AI troublemaker. I make sense of economic data and help you explore the what-ifs. You bring the ideas; I’ll bring the numbers. And occasional judgement.");
     this.button.addEventListener("click", () => {
       if (this.dragged) { this.dragged = false; return; }
       this.setOpen(!this.open);
