@@ -76,12 +76,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 h1 { margin: 0; color: var(--pink); font-family: Arcade, monospace; font-size: 18px; line-height: 1.65; }
 .intro { color: #b0bfd1; line-height: 1.7; font-size: 13px; margin: 22px 0 27px; }
 .layer-row { display: grid; gap: 12px; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 13px; font-weight: bold; }
-.layer-switch { display: flex; gap: 4px; }
-.layer-switch button { flex: 1; min-width: 0; padding: 11px 2px; border: 1px solid var(--line); background: var(--sea); color: var(--muted); font: 7px/1.5 Arcade, monospace; }
-.layer-switch button:hover { color: var(--text); }
+.layer-switch, .weather-switch { display: flex; gap: 4px; }
+.layer-switch button, .weather-switch button { flex: 1; min-width: 0; padding: 11px 8px; border: 1px solid var(--line); background: var(--sea); color: var(--muted); font: 7px/1.5 Arcade, monospace; }
+.layer-switch button:hover, .weather-switch button:hover { color: var(--text); }
 .layer-switch button[aria-pressed="true"] { color: var(--cyan); border-color: var(--cyan); background: #1c333e; }
 .layer-switch button[data-layer="density"][aria-pressed="true"] { color: var(--pink); border-color: var(--pink); background: #302138; }
+.weather-switch button[aria-pressed="true"] { color: #c6e4f3; border-color: #c6e4f3; background: #243745; }
 .density-key { gap: 6px; }
+.mist-key { gap: 7px; border-left-color: #c6e4f3; }
+.mist-gradient { height: 12px; border: 1px solid #75849a; background: linear-gradient(90deg, #c6e4f322, #c6e4f3dd); }
 .key-title { color: var(--text); font-weight: bold; }
 .key-scale { color: var(--muted); }
 .density-classes { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }

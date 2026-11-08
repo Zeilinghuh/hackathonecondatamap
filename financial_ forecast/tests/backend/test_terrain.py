@@ -210,6 +210,47 @@ class AssetIntegrationTests(unittest.TestCase):
         self.assertTrue(all(value is None or value > 0 for value in densities))
         self.assertIn("population_density", api.TERRAIN.context())
 
+    def test_employment_uses_observations_instead_of_confidence_intervals(self):
+        gb = self.read_table("employment_gb")
+        ni = self.read_table("employment_ni")
+        self.assertEqual(gb["source_year"], "2023")
+        self.assertEqual(gb["income_by_name"]["hartlepool"], 67.9)
+        self.assertEqual(ni["income_by_name"]["antrimandnewtownabbey"], 78.5)
+        self.assertNotIn("london", gb["income_by_name"])
+
+    def test_employment_history_and_changes_preserve_missing_values(self):
+        data = json.loads(api.TERRAIN.response()[0])
+        self.assertEqual(data["metadata"]["employment"]["source_year"], "2023")
+        self.assertEqual(data["metadata"]["employment"]["matched_authorities"], 359)
+        records = {
+            feature["properties"]["authority_name"]: feature["properties"]
+            for feature in data["features"]
+        }
+        hartlepool = records["Hartlepool LPA"]
+        ni = records["Antrim and Newtownabbey LPA"]
+        self.assertEqual(hartlepool["employment_rate"], 67.9)
+        self.assertAlmostEqual(hartlepool["employment_change_pp"], -.3)
+        self.assertEqual(ni["employment_rate"], 78.5)
+        self.assertIsNone(ni["employment_change_pp"])
+        frames = {frame["year"]: frame["observations"] for frame in data["employment"]["frames"]}
+        self.assertEqual(len(frames), 20)
+        self.assertEqual(frames["2022"][hartlepool["authority_code"]], 68.2)
+        self.assertNotIn(ni["authority_code"], frames["2022"])
+        self.assertTrue(all(0 <= value <= 100 for values in frames.values() for value in values.values()))
+        context = api.TERRAIN.context(hartlepool["authority_code"])
+        self.assertEqual(context["selected_authority"]["employment_rate"], 67.9)
+        # Keep this focused on the employment index; no need to build every DEM.
+        with (
+            patch.object(api.TERRAIN, "history_response"),
+            patch.object(
+                api.TERRAIN, "_history_context",
+                {"income": {"2022": {}}, "density": {}}, create=True
+            ),
+        ):
+            context = api.TERRAIN.context(hartlepool["authority_code"], "2022")
+        self.assertEqual(context["employment"]["source_year"], "2022")
+        self.assertEqual(context["selected_authority"]["employment_rate"], 68.2)
+
     def test_density_has_its_own_log_scaled_native_terrain(self):
         data = json.loads(api.TERRAIN.response()[0])
         dem, income = data["density_dem"], data["dem"]
@@ -274,6 +315,7 @@ class AssetIntegrationTests(unittest.TestCase):
             for route, expected in (
                 ("/", b'type="module"'),
                 ("/map/render/terraintexture.js", b"export class TerrainTexture"),
+                ("/GUI/vegetation.css", b".vegetation-crown"),
             ):
                 with urlopen(base + route, timeout=10) as response:
                     self.assertIn(expected, response.read())
@@ -281,6 +323,8 @@ class AssetIntegrationTests(unittest.TestCase):
                         self.assertEqual(
                             response.headers.get_content_type(), "text/javascript"
                         )
+                    if route.endswith(".css"):
+                        self.assertEqual(response.headers.get_content_type(), "text/css")
         finally:
             server.shutdown()
             server.server_close()

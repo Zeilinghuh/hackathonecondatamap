@@ -4,6 +4,12 @@ A UK income landscape with 2D contours, a 3D view, a population density layer
 and Capri as a chat companion. Heights describe gross disposable household
 income, not physical altitude.
 
+The **VEGETATION** layer shades employment rates from pale to dark green, with
+small CSS trees only in the highest band (85%+). Use **Data year** or **Play** to explore 2004–2023,
+then select an authority to see its rate and annual change in percentage points.
+The figures come from ONS/NISRA employment observations for ages 16–64; the
+vegetation is an economic metaphor. Northern Ireland is available for 2023 only.
+
 ## Run
 
 Use Python 3.11.7 and a C++17 compiler (`g++` or `clang++`) on PATH.

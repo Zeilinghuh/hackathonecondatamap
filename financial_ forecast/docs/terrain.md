@@ -123,3 +123,42 @@ unbounded panning. Pixel density is capped at 2×.
 
 The native grid still limits income detail. Land colour textures can soften at
 extreme zoom; GPU contour and boundary strokes remain screen-width sharp.
+
+## Employment vegetation
+
+Choose **VEGETATION**, then use **Data year** or **Play** to change the green
+landscape through recorded years. Select an authority to see its employment
+rate and change against the previous calendar year, in percentage points.
+
+The native pipeline reads actual employment rates for people aged 16–64 from
+workbook tabs **11** (ONS, Great Britain) and **12** (NISRA, Northern Ireland).
+It filters Measure to Observation value, excluding confidence intervals.
+The latest year is **2023**, matching **359/382** planning authorities. Great
+Britain has 2004–2023 observations; Northern Ireland has 2023 only. Suppressed,
+unavailable and unmatched values remain missing. No rate is inferred from
+unemployment, and the unfinished regression does not generate these observations.
+
+The terrain response includes an employment series with per-year authority
+observations. Features and Capri's indexed context include employment rate and
+annual change. A previous-year comparison is unavailable when either year is
+missing; it is never substituted with zero or a different earlier year.
+
+[vegetation.css](../src/frontend/GUI/vegetation.css) defines the green map palette
+and draws the small trees with CSS gradients, rounded shapes and pseudo-elements.
+Authority fills use a fixed sequential scale with breaks at 65%, 75%, 80% and
+85%; darker green means higher employment. Missing data stays pale grey.
+These are employment metaphors, not measured land cover or a causal claim.
+
+The existing GPU area geometry draws all green fills in one call, preserving
+sharp borders and holes. An authority colour lookup texture (512 × 1 RGBA
+pixels for the current data) changes only when the selected year changes.
+Camera movement does not repaint paths or upload data. No extra canvas or
+plant image assets are added.
+
+Vegetation uses a pale blue sea and a flat, pale land surface. In 3D the same
+plane tilts while CSS trees remain upright and follow pan, zoom and rotation.
+Decorative trees are restricted to employment rates of **85%+**. Stable anchors
+reuse Earcut triangles and respect holes and islands. A reusable pool holds at
+most **48** CSS tree elements, with no more than **28** shown on desktop or
+**16** on narrow maps. Screen spacing prevents clumps, and labels sit above the
+trees. Normal picking remains available; no animation loop runs while idle.

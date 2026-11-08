@@ -11,6 +11,7 @@ data, simplifies boundaries, generates RichDEM terrain and writes the product.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import re
@@ -26,6 +27,7 @@ from capri.speech import SpeechService
 from terrain_service import PROJECT_ROOT, TerrainStore
 
 WEB_ROOT = PROJECT_ROOT / "src" / "frontend"
+BUSINESS_DEATHS_PATH = PROJECT_ROOT / "assets" / "data" / "business_deaths.csv"
 TERRAIN = TerrainStore()
 CAPRI = CapriService(PROJECT_ROOT)
 SPEECH = SpeechService()
@@ -65,6 +67,33 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             return
         if route == "/api/capri/speech/status":
             self.send_json(SPEECH.status())
+        if route == "/api/business-deaths":
+            try:
+                with BUSINESS_DEATHS_PATH.open(newline="", encoding="utf-8-sig") as source:
+                    rows = []
+                    for row in csv.DictReader(source):
+                        value = (row.get("business_death_rate_percent") or "").strip()
+                        if row.get("year") != "2024" or not value:
+                            continue
+                        rows.append(
+                            {
+                                "area_code": row["area_code"],
+                                "area_name": row["area_name"],
+                                "rate_percent": float(value),
+                            }
+                        )
+                self.send_json(
+                    {
+                        "source_year": "2024",
+                        "metric": "Business deaths as a percentage of active businesses",
+                        "areas": rows,
+                    }
+                )
+            except (OSError, KeyError, ValueError) as error:
+                self.send_json(
+                    {"error": f"Could not read business-deaths data: {error}"},
+                    status=HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
             return
         if route == "/capri-assets/sprites.png":
             sprite = PROJECT_ROOT / "assets" / "visual" / "capri" / "sprites.png"
