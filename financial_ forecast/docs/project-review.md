@@ -29,8 +29,8 @@ are retained on disk but excluded from future commits.
   scales are reused across scenarios. Selection highlights conform to raised terrain.
 - Added bounded scenario caching, finite/range validation, gzip/ETag handling,
   zero-correlation handling and model/source-year disclosures.
-- Capri's action registry reuses existing controls; clear navigation commands
-  run locally and provider tool calls use the same validated operations.
+- Capri's action registry reuses existing controls; the model plans conversational
+  requests and receives execution results before its final explanation.
 
 ## Earlier cleanup findings
 

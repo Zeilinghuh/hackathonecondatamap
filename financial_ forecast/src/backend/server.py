@@ -230,7 +230,15 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             payload = json.loads(self.rfile.read(size))
             if route == "/api/forecast/search":
                 if not isinstance(payload, dict) or any(
-                    k not in {"variable", "region", "year", "goal", "scenario"}
+                    k
+                    not in {
+                        "variable",
+                        "region",
+                        "year",
+                        "goal",
+                        "scenario",
+                        "aggregation",
+                    }
                     for k in payload
                 ):
                     raise ValueError("Invalid simulation search.")

@@ -493,9 +493,17 @@ class ForecastService:
         }
 
     def optimize(
-        self, variable="income", region="UK", year=2028, goal="min", scenario=None
+        self,
+        variable=None,
+        region="UK",
+        year=2028,
+        goal="min",
+        scenario=None,
+        aggregation="extreme",
     ):
         """Bounded coordinate search; report the best explored scenario, not a proof."""
+        if aggregation not in {"extreme", "mean"}:
+            raise ValueError("Choose extreme or mean aggregation.")
         if variable not in {
             "income",
             "density",
@@ -549,6 +557,8 @@ class ForecastService:
                 if not rows:
                     raise ValueError("No model values in that region.")
                 winner = (min if goal == "min" else max)(rows, key=lambda row: row[0])
+                if aggregation == "mean":
+                    winner = (sum(value for value, _ in rows) / len(rows), winner[1])
                 cache[key] = (winner, len(rows))
             return cache[key]
 
@@ -579,6 +589,7 @@ class ForecastService:
             "area": area,
             "value": value,
             "starting_extreme": original,
+            "aggregation": aggregation,
             "area_count": count,
             "evaluations": len(cache),
             "method": "Best found in a bounded coordinate search of global growth shocks and rate stance; not a guaranteed global optimum or economic prediction.",
@@ -610,6 +621,19 @@ class ForecastService:
                 v: definition["unit"] for v, definition in data["variables"].items()
             },
         }
+        result["regional_summaries"] = {}
+        for region in data["regions"]:
+            indices = [
+                i for i, a in enumerate(data["areas"]) if a["region"] == region["code"]
+            ]
+            summary = {}
+            for variable, rows in data["values"].items():
+                available = [rows[i][yi] for i in indices if rows[i][yi] is not None]
+                summary[variable] = (
+                    round(sum(available) / len(available), 3) if available else None
+                )
+            summary["fdi"] = region["fdi"][yi]
+            result["regional_summaries"][region["name"]] = summary
         selected = facts.get("selected_authority")
         if selected:
             normalise = lambda name: (

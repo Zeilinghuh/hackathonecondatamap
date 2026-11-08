@@ -94,11 +94,11 @@ what-if model, **not a validated economic prediction**. See [model details](fina
 Type or hold **Speak to Capri**, for example:
 
 - “Find Barnet in 2019” selects, highlights and zooms to Barnet, changes the year
-  and reports the displayed observations. This command works without a chat key.
+  and reports the displayed observations.
 - “Show employment in 3D”, “hide the panel”, “pause” and “zoom out” use the normal
   app controls.
 - “Find Barnet in 2030” opens the simulated future.
-- Broader requests, such as “increase Barnet’s income growth by one standard
+- Requests, such as “increase Barnet’s income growth by one standard
   deviation”, use the configured chat model to select validated app actions.
 
 Capri can control layers, views, area selection, years, playback, overlays,
@@ -166,3 +166,5 @@ Node is only needed for the frontend tests. Chat tests mock the provider.
 Capri drives map controls for recorded/simulation switching, scenarios and playback. Area requests use a smooth camera flight, centred on the displayed terrain height in 3D. Manual year scrubbing also morphs the shared contour surface; rapid input reuses and retargets the active transition. Reduced-motion preferences keep camera and terrain changes immediate.
 
 Capri can search simulation parameters, for example “change the parameters to find minimum income per head in London”. She uses 2028 if no future year is specified, searches global shock/rate settings, applies the best result found to the map and sliders, and focuses the winning authority. This bounded search does not establish a global optimum.
+
+Capri interprets typed/spoken requests through Kimi K3 using the current metric, camera, scenario parameters and recent chat. After applying actions she receives execution results and freshly computed map facts, then finishes the requested explanation or remaining controls. Regional focus and mean/extreme search objectives support country-wide and local scenarios. A configured chat key is required for conversational controls; direct GUI controls continue to work independently.

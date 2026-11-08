@@ -334,19 +334,25 @@ export class CapriCompanion {
     this.appendMessage("user", message);
     if(spoken===null)this.input.value = "";
     const pending = this.appendMessage("assistant", "One sec…", "pending");
+    let actionResult;
     try {
-      const plan=this.actions?.plan(message);
-      let reply;
-      if(plan)reply=await this.actions.execute(plan);
-      else {
-      const response = await fetch("/api/capri/chat", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({message, history:recentHistory(this.history), selected_authority:this.selectedAuthority, selected_year:this.selectedYear, app_state:this.actions?.state(),scenario:this.actions?.forecast.enabled?this.actions.forecast.appliedInputs:null}),
-        signal:AbortSignal.timeout(70000),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "The link dropped. Please try again.");
-      reply=result.actions?.length?await this.actions.execute(result.actions):result.reply;
+      let reply,continuation;
+      for(let turn=0;turn<5;turn++) {
+        const response=await fetch('/api/capri/chat',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message,history:recentHistory(this.history),selected_authority:this.selectedAuthority,selected_year:this.selectedYear,app_state:this.actions?.state(),scenario:this.actions?.forecast.enabled?this.actions.forecast.appliedInputs:null,continuation,action_result:actionResult}),
+          signal:AbortSignal.timeout(70000),
+        });
+        const result=await response.json();
+        if(!response.ok)throw new Error(result.error||'The link dropped. Please try again.');
+        if(!result.actions?.length){reply=result.reply;break;}
+        if(!this.actions)throw new Error('The map is still loading. Try again shortly.');
+        if(!result.continuation)throw new Error('The action response was incomplete. Please retry.');
+        this.status.textContent='Updating the map…';
+        try{actionResult={status:'ok',description:await this.actions.execute(result.actions)};}
+        catch(error){actionResult={status:'error',description:error.message+' Current display: '+this.actions.summary()};}
+        continuation=result.continuation;
+        this.status.textContent='Checking results…';
       }
       if (typeof reply !== "string" || !reply.trim()) throw new Error("Empty reply. Please try again.");
       pending.element.classList.remove("pending");
@@ -359,7 +365,9 @@ export class CapriCompanion {
     } catch (error) {
       pending.element.classList.remove("pending");
       pending.element.classList.add("error");
-      pending.content.textContent = error.name === "TimeoutError" ? "The link timed out. Try again?" : error.message;
+      const failure=error.name==='TimeoutError'?'The link timed out. Try again?':error.message;
+      pending.content.textContent=actionResult?this.actions.summary()+' I could not finish the request: '+failure:failure;
+      if(actionResult){this.history=recentHistory([...this.history,{role:'user',content:message},{role:'assistant',content:pending.content.textContent}]);try{localStorage.setItem(HISTORY_KEY,JSON.stringify(this.history));}catch{}}
       this.status.textContent = "Link interrupted · You can retry";
     } finally {
       this.busy = false;

@@ -16,21 +16,8 @@ test('forecast frames join LADs to current planning areas by name, keeping gaps 
  assert.equal(input.values.income[0][0],10);
 });
 
-test('local commands resolve Barnet 2019 and compose view/layer changes',()=>{
- const actions=new AppActions({areas:{areas:[area('Barnet LPA','1'),area('Barnsley LPA','2')]}});
- const plan=actions.plan('find Barnet in 2019');
- assert.deepEqual(plan,[{type:'select_area',target:'Barnet LPA'},{type:'set_simulation',enabled:false},{type:'set_year',year:2019}]);
- assert.deepEqual(actions.plan('show employment in 3D'),[{type:'set_layer',layer:'employment'},{type:'set_view',mode:'3d'}]);
- assert.equal(actions.plan("don't change the year to 2019"),null);
- assert.equal(actions.plan('why are incomes different?'),null);
- assert.equal(actions.plan('set income growth in Barnet to one standard deviation'),null);
- assert.equal(actions.plan('set the rate stance to 0.5'),null);
- assert.equal(actions.plan('find Atlantis in 2019'),null);
- assert.equal(actions.plan('find Barnet in 2019 and then 2020'),null);
-});
-
 test('actions reject unknown code, nonfinite values and ambiguous authority names',async()=>{
- for(const action of [{type:'eval',code:'bad'},{type:'zoom',factor:Infinity},{type:'set_shock',variable:'income',value:4},{type:'set_year',year:2019.5},{type:'set_sound',enabled:'true'}])assert.throws(()=>validateAction(action));
+ for(const action of [{type:'eval',code:'bad'},{type:'zoom',factor:Infinity},{type:'set_shock',variable:'income',value:11},{type:'set_year',year:2019.5},{type:'set_sound',enabled:'true'}])assert.throws(()=>validateAction(action));
  const actions=new AppActions({areas:{areas:[area('North Somerset LPA','1'),area('Somerset LPA','2')]}});
  assert.equal(actions.find('Somerset').feature.properties.authority_code,'2');
  assert.throws(()=>actions.find('Som'),/Which area/);

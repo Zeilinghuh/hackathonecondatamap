@@ -199,7 +199,7 @@ async function initialise() {
     forecast.getView=()=>navigation.view;
     forecast.project=(lon,lat)=>renderer.project(lon,lat,navigation.view,navigation.mode,controls.surface);
     forecast.areaPosition=code=>{const area=byCode.get(code);return area&&forecast.project((area.bounds[0]+area.bounds[2])/2,latitudeAt((area.bounds[1]+area.bounds[3])/2));};
-    actions=new AppActions({areas,controls,timeline,forecast,navigation,renderer,select:(area,position)=>{interaction.selected=area;showArea(area,position);requestDraw();},getSelected:()=>selection,getPosition:()=>selectedPosition});
+    actions=new AppActions({areas,controls,timeline,forecast,navigation,renderer,select:(area,position)=>{interaction.selected=area;showArea(area,position);requestDraw();},getSelected:()=>selection,getPosition:()=>selectedPosition,onRegion:region=>{selection=null;selectedPosition=null;interaction.selected=null;renderer.setSelection(null);capri.selectedAuthority=null;document.querySelector('#area-name').textContent=region;document.querySelector('#area-stats').replaceChildren();capri.chat.querySelector('#capri-context').textContent='Context: '+region;requestDraw();}});
     capri.actions=actions;
   } catch(error){loading.textContent="Could not load the map: "+error.message;}
 }
