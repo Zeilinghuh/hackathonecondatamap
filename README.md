@@ -1,7 +1,7 @@
 # CAPRICORN — Financial Forecast
 
 A UK income landscape with 2D contours, a 3D view, a population density layer
-and Capri as a chat companion. Heights describe gross disposable household
+and Capri as an interactive companion. An optional economic simulation explores 2026–2035. Heights describe gross disposable household
 income, not physical altitude.
 
 The **Employment rate** layer displays employment rates as contoured hills from pale to dark green, with
@@ -27,7 +27,7 @@ uv run --no-dev python "financial_ forecast/src/backend/server.py"
 ```
 
 Open [the local app](http://127.0.0.1:8000). No frontend build, Node runtime,
-Python RichDEM, GDAL or extra Python runtime packages are needed for the map or typed chat. Offline voice uses an optional extra described below. The browser
+Python RichDEM or GDAL are needed. Run `uv sync` first (or install the project dependencies in your activated environment) for NumPy, pandas and openpyxl. Offline voice uses an optional extra described below. The browser
 uses WebGL for both map views. The first request compiles native code if needed;
 subsequent starts reuse generated terrain.
 
@@ -64,6 +64,46 @@ Income covers 1997–2024 and population density 1991–2025. Employment covers 
 scales stay fixed across years. Missing values remain unshaded; income is
 nominal (not inflation-adjusted) and all years use the current map boundaries.
 
+## Simulation and Capri controls
+
+Choose **Enable simulation** in **WHAT IF?**. The existing **Data year** slider
+then explores **2026–2035**; **Play** morphs the same terrain meshes as recorded
+playback. **Return to recorded data** restores the previous recorded year for
+each layer. Recorded observations are never overwritten by scenarios.
+
+Edit growth shocks for all modelled areas, or choose an authority in **Edit**.
+Edits apply automatically after a short pause; **Apply edits** retries a failed
+request. Income, density and employment alter both the contours and 3D heights.
+Business failure alters the closure overlay; **Weekly pay** adds blue rain,
+**Foreign investment** adds regional arrows, and **Rate signal** shows model
+output in the legend stack. **Reset all edits** restores the baseline scenario.
+All controls use the existing dark arcade theme.
+
+The model currently fits **290 English local authorities** with complete inputs;
+unmatched areas and the rest of the UK stay unshaded in simulation mode. It
+uses damped correlations in observed growth, not causal estimates. A shock is
+in growth standard deviations, not a percentage-point change, and fades by 0.6
+each year. FDI edits apply to the whole region. The rate signal is dimensionless,
+not an actual interest rate. Each authority starts from its latest available
+observations, which may have different source years. This is an exploratory
+what-if model, **not a validated economic prediction**. See [model details](financial_%20forecast/docs/simulation.md).
+
+Type or hold **Speak to Capri**, for example:
+
+- “Find Barnet in 2019” selects, highlights and zooms to Barnet, changes the year
+  and reports the displayed observations. This command works without a chat key.
+- “Show employment in 3D”, “hide the panel”, “pause” and “zoom out” use the normal
+  app controls.
+- “Find Barnet in 2030” opens the simulated future.
+- Broader requests, such as “increase Barnet’s income growth by one standard
+  deviation”, use the configured chat model to select validated app actions.
+
+Capri can control layers, views, area selection, years, playback, overlays,
+simulation shocks/rate stance/reset, zoom/reset, sidebar and sound. She reports
+actual displayed values after actions finish. Other conversation uses Fireworks;
+tests mock that service and never spend chat credits. Source files and system
+settings are outside her app controls.
+
 ## Layout
 
 ```text
@@ -71,6 +111,8 @@ financial_ forecast/
   src/backend/
     server.py             Web/API server
     terrain_service.py    C++ build, ZIP unpacking and response cache
+    forecast_service.py   One fitted simulation model and scenario cache
+    simulation.py         CLI export using that same model
     terrain/              C++ data pipeline, RichDEM and native CLI
     capri/                Server-side chat adapter
   src/frontend/
@@ -88,7 +130,7 @@ financial_ forecast/
 The remaining Python is active infrastructure: C++ handles data parsing,
 authority joins, geometry simplification, income interpolation, RichDEM analysis
 and terrain JSON. Python handles the local web server, HTTPS chat, ZIP unpacking
-and cached bytes. Source tests live under `tests/`; old duplicate paths and
+cached bytes and the vectorised simulation model. Source tests live under `tests/`; old duplicate paths and
 obsolete bytecode were removed.
 
 Both views share one GPU canvas. Terrain, boundary segments and highlight meshes
@@ -101,7 +143,7 @@ See [the terrain guide](financial_%20forecast/docs/terrain.md),
 [project review](financial_%20forecast/docs/project-review.md).
 The original edited planning documents are preserved under `docs/planning/`.
 
-The scripts under `src/backend/matrixcoefffitting/` are offline research, not obsolete runtime code. They share `dataset.py`; install `uv sync --extra analysis` to use their pandas/openpyxl dependencies. They do not affect map heights or forecasts. Regression reports insufficient overlapping data rather than returning invalid coefficients.
+The scripts under `src/backend/matrixcoefffitting/` are offline research, not obsolete runtime code. They share `dataset.py`; their pandas/openpyxl dependencies are included by `uv sync`. They do not affect map heights or forecasts. Regression reports insufficient overlapping data rather than returning invalid coefficients.
 
 The large GeoJSON uses Git LFS: run `git lfs pull` after cloning if it is a
 pointer instead of the real boundary file. Chat credentials belong in the ignored

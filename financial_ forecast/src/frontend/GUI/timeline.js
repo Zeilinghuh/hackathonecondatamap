@@ -9,7 +9,7 @@ export class Timeline {
     this.slider.addEventListener("wheel",event=>{event.preventDefault();this.pause();this.queue(Number(this.slider.value)+Math.sign(event.deltaY));},{passive:false});
     document.addEventListener("visibilitychange",()=>{if(document.hidden)this.pause();});
     this.play.addEventListener("click",()=>{if(this.timer){this.pause();return;}if(Number(this.slider.value)===Number(this.slider.max))this.show(0);this.run();});
-    this.load();
+    this.ready=this.load();
   }
   async load() {
     try {
@@ -22,23 +22,27 @@ export class Timeline {
   }
   useSurface() {
     if(this.queued){cancelAnimationFrame(this.queued);this.queued=null;}
-    this.pause();this.active=null;const name=this.getSurface(),series=this.data?.[name];
+    this.pause();this.active=null;const name=this.getSurface(),series=this.series(name);
     this.slider.disabled=this.play.disabled=!series;
     if(!series?.frames.length){this.slider.disabled=this.play.disabled=true;document.querySelector("#year-note").textContent=this.loading?"Loading historical years…":"Choose Income per head, Population density or Employment rate to explore years.";return;}
     this.slider.min=0;this.slider.max=series.frames.length-1;
     document.querySelector("#year-oldest").textContent=series.frames[0].year;
     document.querySelector("#year-newest").textContent=series.frames.at(-1).year;
-    document.querySelector("#year-note").textContent=name==="income"?"Recorded income · not inflation-adjusted · fixed boundaries":name==="employment"?"ONS / NISRA · ages 16–64 · Northern Ireland available for 2023 only.":"Residents per km² · fixed boundaries";
-    this.show(this.positions[name]??series.frames.length-1);
+    document.querySelector("#year-note").textContent=this.simulation?"SIMULATED · 2026–2035 · latest available inputs · England only":name==="income"?"Recorded income · not inflation-adjusted · fixed boundaries":name==="employment"?"ONS / NISRA · ages 16–64 · Northern Ireland available for 2023 only.":"Residents per km² · fixed boundaries";
+    this.show(this.positions[this.key(name)]??(this.simulation?0:series.frames.length-1));
   }
+  series(name=this.getSurface()){return (this.simulation||this.data)?.[name];}
+  key(name){return (this.simulation?'simulation:':'recorded:')+name;}
+  setSimulation(data){this.simulation=data;this.useSurface();}
+  async setYear(year){await this.ready;const series=this.series(),index=series?.frames.findIndex(f=>Number(f.year)===Number(year));if(index===undefined||index<0)throw new Error('No '+(this.simulation?'simulated':'recorded')+' '+this.getSurface()+' data for '+year+'.');this.pause();this.show(index);}
   show(index,animate=false) {
-    const name=this.getSurface(),series=this.data?.[name];if(!series)return;
+    const name=this.getSurface(),series=this.series(name);if(!series)return;
     index=Math.max(0,Math.min(series.frames.length-1,index));
     if(this.active===name+":"+index)return;
     this.active=name+":"+index;
-    this.positions[name]=index;this.slider.value=index;
+    this.positions[this.key(name)]=index;this.slider.value=index;
     const frame=series.frames[index];this.year=frame.year;
-    document.querySelector("#year-label").textContent=frame.year;this.slider.setAttribute("aria-valuetext",frame.year);
+    document.querySelector("#year-label").textContent=frame.year+(this.simulation?' · SIM':'');this.slider.setAttribute("aria-valuetext",frame.year+(this.simulation?' simulated':''));
     this.onFrame(name,frame,series,animate && !matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
   queue(index) {this.pending=index;if(this.queued)return;this.queued=requestAnimationFrame(()=>{this.queued=null;this.show(this.pending);});}

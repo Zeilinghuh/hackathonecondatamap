@@ -3,7 +3,7 @@ import { CONTOUR_COLOURS, PEAK_COLOURS, DENSITY_BREAKS, DENSITY_COLOURS, NO_DATA
 const NOTES = {
   terrain: "Household disposable income per head (£). Higher income creates taller shapes; colours run from blue to dark red.",
   density: "Population density is residents per km². Heights use a logarithmic scale: blue represents lower density and pink higher density. White contours show equal display heights.",
-  borders: "Local planning authority boundaries. Hover to highlight an area, then click to view its recorded values.",
+  borders: "Local planning authority boundaries. Hover to highlight an area, then click to view its displayed values.",
   vegetation: "Employment rate is the percentage of people aged 16–64 in work. Higher rates create taller green shapes. Trees mark 85% or above; select an area for its rate and annual change.",
   mist: "Business failure shows recorded business closures as a percentage of active businesses in 2024 (ONS business deaths). A denser overlay means a higher closure rate.",
 };
@@ -105,7 +105,7 @@ export class TerrainControls {
       this.mistEnabled = !this.mistEnabled;
       this.mistToggle.setAttribute("aria-pressed", String(this.mistEnabled));
       document.querySelector("#mist-key").hidden = !this.mistEnabled;
-      document.querySelector("#control-note").textContent = NOTES[this.layer]+(this.mistEnabled?" "+NOTES.mist:"");
+      this.updateNote();
       onOverlayChange();
     });
     document.querySelector("#zoom-in").addEventListener("click", () => onZoom(1.4));
@@ -146,12 +146,18 @@ export class TerrainControls {
   setLayer(layer) {
     this.layer = layer;
     for (const button of this.layerButtons) button.setAttribute("aria-pressed", String(button.dataset.layer === layer));
-    document.querySelector("#control-note").textContent = NOTES[layer]+(this.mistEnabled?" "+NOTES.mist:"");
+    this.updateNote();
     document.querySelector("#terrain-key").hidden = layer !== "terrain";
     document.querySelector("#density-key").hidden = layer !== "density";
     document.querySelector("#vegetation-key").hidden = layer !== "vegetation";
     document.querySelector("#mist-key").hidden = !this.mistEnabled;
   }
+
+  updateNote() {
+    const mist=this.simulated?'Business failure shows simulated business closures for the selected year. A denser overlay means a higher closure rate.':NOTES.mist;
+    document.querySelector('#control-note').textContent=NOTES[this.layer]+(this.mistEnabled?' '+mist:'');
+  }
+  setSimulation(enabled){this.simulated=enabled;this.updateNote();}
 
   // Older cached map scripts still call this hook; keep dates out of the key text.
   setEmploymentSource(year) {
@@ -187,7 +193,7 @@ export class TerrainControls {
       // Heights are 0–1000; major contours every 25 units multiply density by this factor.
       const factor = 10 ** ((high - low) * 25 / 1000);
       NOTES.density = `Population density is residents per km²: blue is lower and pink higher. Heights use a logarithmic scale; each bold white contour represents about ×${factor.toFixed(2)} in density.`;
-      if (this.layer === "density") document.querySelector("#control-note").textContent = NOTES.density+(this.mistEnabled?" "+NOTES.mist:"");
+      if (this.layer === "density") this.updateNote();
     }
   }
 

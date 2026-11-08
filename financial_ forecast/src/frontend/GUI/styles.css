@@ -208,3 +208,22 @@ dd { margin: 5px 0 0; color: var(--cyan); font-size: 13px; font-weight: bold; }
 .map-hud .capri-voice { position: static; flex-shrink: 0; width: 100%; max-width: 100%; pointer-events: auto; }
 .navigation #sound-toggle { font-size: 7px; padding: 0 8px; border-left: 1px solid var(--line); color: var(--cyan); }
 .navigation #sound-toggle[aria-pressed="false"] { color: var(--muted); }
+
+/* Simulation uses the existing arcade palette and the single map timeline. */
+.simulation { margin: 18px 0; border: 1px solid var(--line); border-top: 2px solid var(--pink); padding: 12px; font-size: 11px; }
+.simulation-heading { display:flex; align-items:center; gap:10px; justify-content:space-between; }
+.simulation h2 { color:var(--pink); font:8px/1.6 Arcade,monospace; margin:0; }
+.simulation button { border:1px solid var(--line); background:var(--sea); color:var(--text); padding:7px; font-size:10px; }
+.simulation button[aria-pressed=true] { border-color:var(--pink); color:var(--pink); background:#352235; }
+.simulation p { line-height:1.6; margin:10px 0; color:var(--muted); }
+.simulation .simulation-warning { color:var(--yellow); }
+.simulation select { min-width:0; width:100%; margin-top:6px; padding:7px; color:var(--text); background:var(--sea); border:1px solid var(--line); }
+.simulation-sliders label,.simulation-rate { display:grid; grid-template-columns:1fr auto; gap:5px; margin-top:12px; }
+.simulation input[type=range] { grid-column:1 / -1; width:100%; accent-color:var(--pink); }
+.simulation output { color:var(--pink); }
+.simulation details { margin-top:12px; }
+.simulation summary { cursor:pointer; color:var(--cyan); }
+.simulation-overlays { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+.simulation [aria-busy=true] { opacity:.8; }
+.forecast-weather { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1; }
+#year-label { white-space:nowrap; }

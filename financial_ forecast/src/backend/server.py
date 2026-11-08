@@ -17,16 +17,14 @@ import os
 import re
 import socket
 import subprocess
-import threading
-from urllib.parse import parse_qs, urlparse
-from forecast_service import VARS, ForecastService
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, ClassVar
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from capri.capri import CapriError, CapriService
 from capri.speech import SpeechService
+from forecast_service import VARS, ForecastService
 from terrain_service import PROJECT_ROOT, TerrainStore
 
 WEB_ROOT = PROJECT_ROOT / "src" / "frontend"
@@ -71,9 +69,12 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             return
         if route == "/api/capri/speech/status":
             self.send_json(SPEECH.status())
+            return
         if route == "/api/business-deaths":
             try:
-                with BUSINESS_DEATHS_PATH.open(newline="", encoding="utf-8-sig") as source:
+                with BUSINESS_DEATHS_PATH.open(
+                    newline="", encoding="utf-8-sig"
+                ) as source:
                     rows = []
                     for row in csv.DictReader(source):
                         value = (row.get("business_death_rate_percent") or "").strip()
@@ -111,32 +112,34 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
             return
-        if route == "/api/forecast":
+        if route in {"/api/terrain", "/api/history", "/api/forecast"}:
             try:
-                q = parse_qs(urlparse(self.path).query)
-                shocks = {v: max(-3.0, min(3.0, float(q[f"shock_{v}"][0]))) for v in VARS if f"shock_{v}" in q}
-                bias = max(-1.0, min(1.0, float(q.get("rate_bias", ["0"])[0])))
-                content, compressed, etag = FORECAST.response(shocks, bias)
-                gz = "gzip" in self.headers.get("Accept-Encoding", "").lower()
-                body = compressed if gz else content
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_header("ETag", etag)
-                if gz:
-                    self.send_header("Content-Encoding", "gzip")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            except (OSError, KeyError, ValueError) as error:
-                self.send_json({"error": str(error)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-        if route in {"/api/terrain", "/api/history"}:
-            try:
-                content, compressed, etag = (
-                    TERRAIN.history_response()
-                    if route == "/api/history"
-                    else TERRAIN.response()
-                )
+                if route == "/api/forecast":
+                    if len(self.path) > 32768:
+                        raise ValueError("The scenario is too large.")
+                    q = parse_qs(urlparse(self.path).query)
+                    if any(
+                        k
+                        not in {
+                            "rate_bias",
+                            "area_shocks",
+                            *[f"shock_{v}" for v in VARS],
+                        }
+                        or len(v) != 1
+                        for k, v in q.items()
+                    ):
+                        raise ValueError("Unknown or repeated scenario parameter.")
+                    content, compressed, etag = FORECAST.response(
+                        {v: q[f"shock_{v}"][0] for v in VARS if f"shock_{v}" in q},
+                        q.get("rate_bias", [0])[0],
+                        json.loads(q.get("area_shocks", ["{}"])[0]),
+                    )
+                else:
+                    content, compressed, etag = (
+                        TERRAIN.history_response()
+                        if route == "/api/history"
+                        else TERRAIN.response()
+                    )
                 unchanged = self.headers.get("If-None-Match") == etag
                 encodings = self.headers.get("Accept-Encoding", "").lower()
                 use_gzip = any(
@@ -166,7 +169,10 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
                 subprocess.SubprocessError,
             ) as error:
                 self.send_json(
-                    {"error": str(error)}, status=HTTPStatus.INTERNAL_SERVER_ERROR
+                    {"error": str(error)},
+                    status=HTTPStatus.BAD_REQUEST
+                    if route == "/api/forecast" and isinstance(error, ValueError)
+                    else HTTPStatus.INTERNAL_SERVER_ERROR,
                 )
             return
         if route == "/":
@@ -198,9 +204,20 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
         try:
             size = int(self.headers.get("Content-Length", "0"))
             if route == "/api/capri/speech":
-                if not 0 <= size <= 32000 or self.headers.get_content_type() != "application/octet-stream":
-                    raise ValueError("Send at most one second of 16 kHz mono PCM audio.")
-                self.send_json(SPEECH.feed(self.headers.get("X-Speech-Session", ""), self.rfile.read(size), finish=self.headers.get("X-Speech-Final") == "true"))
+                if (
+                    not 0 <= size <= 32000
+                    or self.headers.get_content_type() != "application/octet-stream"
+                ):
+                    raise ValueError(
+                        "Send at most one second of 16 kHz mono PCM audio."
+                    )
+                self.send_json(
+                    SPEECH.feed(
+                        self.headers.get("X-Speech-Session", ""),
+                        self.rfile.read(size),
+                        finish=self.headers.get("X-Speech-Final") == "true",
+                    )
+                )
                 return
             if not 0 < size <= 32768:
                 raise CapriError("The chat request is too large or empty.", 413)
@@ -208,14 +225,23 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
                 raise CapriError("Send the chat request as JSON.", 415)
             payload = json.loads(self.rfile.read(size))
             CAPRI.validate(payload)
-            self.send_json(
-                CAPRI.reply(
-                    payload,
-                    TERRAIN.context(
-                        payload.get("selected_authority"), payload.get("selected_year")
-                    ),
-                )
+            scenario = payload.get("scenario")
+            facts = TERRAIN.context(
+                payload.get("selected_authority"),
+                None if scenario is not None else payload.get("selected_year"),
             )
+            if scenario is not None:
+                if not isinstance(scenario, dict):
+                    raise ValueError("Invalid scenario.")
+                if any(
+                    key not in {"shocks", "rate_bias", "area_shocks"}
+                    for key in scenario
+                ):
+                    raise ValueError("Invalid scenario fields.")
+                facts = FORECAST.context(
+                    facts, payload.get("selected_year"), **scenario
+                )
+            self.send_json(CAPRI.reply(payload, facts))
         except CapriError as error:
             self.send_json({"error": str(error)}, HTTPStatus(error.status))
         except (ValueError, UnicodeError):
@@ -233,7 +259,10 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         if not self.local_request():
-            self.send_json({"error": "This request must come from the local app."}, HTTPStatus.FORBIDDEN)
+            self.send_json(
+                {"error": "This request must come from the local app."},
+                HTTPStatus.FORBIDDEN,
+            )
             return
         SPEECH.close(self.headers.get("X-Speech-Session", ""))
         self.send_json({"closed": True})
@@ -265,7 +294,7 @@ def main() -> None:
         metadata = TERRAIN.metadata()
         print(json.dumps(metadata, indent=2))
         return
-    threading.Thread(target=FORECAST.prepare, daemon=True).start()
+    # Fit on first use; a missing workbook must not prevent the recorded map loading.
     try:
         server = LocalHTTPServer(("127.0.0.1", args.port), TerrainRequestHandler)
     except OSError:

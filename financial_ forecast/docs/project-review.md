@@ -3,8 +3,7 @@
 ## Scope and organisation
 
 Static review of first-party backend/frontend source, the frontend import graph,
-Python dependency imports, source hashes, packaging and module guides. No tests
-were run during this cleanup. Vendored RichDEM/Earcut are dependencies with their
+Python dependency imports, source hashes, packaging and module guides. The original static cleanup was followed by simulation integration, model/API unit checks and browser checks of map, timeline, selection and Capri actions. Vendored RichDEM/Earcut are dependencies with their
 own licences; their internals were not rewritten.
 
 The current layout is appropriate: native data/terrain work in `src/backend/terrain`,
@@ -13,14 +12,27 @@ map rendering under `src/frontend/map`, and controls/companion UI under
 `src/frontend/GUI`. The audio worklet is a separate browser execution context and
 belongs beside push-to-talk. No runtime files were moved or split.
 
-The root `pyproject.toml` and `uv.lock` describe the app. Default map/typed-chat
-runtime needs no third-party Python packages; `voice` and `analysis` are optional
-extras. Node is used for existing frontend checks, not production bundling.
+The root `pyproject.toml` and `uv.lock` describe the app. The simulation runtime requires NumPy, pandas and openpyxl; these are declared as core dependencies. Local transcription is the optional `voice` extra. Node is used for existing frontend checks, not production bundling.
 The repository-root `.gitignore` covers root and nested environments, credentials,
 generated products, logs, editor artefacts and reports. Existing local log files
 are retained on disk but excluded from future commits.
 
-## Findings and changes
+## Simulation integration
+
+- Removed `forecast(1).js`, duplicate mount IDs and the independent forecast
+  timeline. `GUI/forecast.js` drives the existing timeline and renderer.
+- Consolidated production simulation in `forecast_service.py`; `simulation.py`
+  exports that same model to JSON/Excel without fitting at import time.
+- Connected global and area shocks to terrain and weather. FDI edits are regional;
+  source observations stay separate and missing data remains unavailable.
+- Reused employment interpolation for simulated surfaces; GPU buffers and fixed
+  scales are reused across scenarios. Selection highlights conform to raised terrain.
+- Added bounded scenario caching, finite/range validation, gzip/ETag handling,
+  zero-correlation handling and model/source-year disclosures.
+- Capri's action registry reuses existing controls; clear navigation commands
+  run locally and provider tool calls use the same validated operations.
+
+## Earlier cleanup findings
 
 - No identical first-party source files or missing/unreachable frontend modules
   were found. The worklet is explicitly loaded by the voice capture code.

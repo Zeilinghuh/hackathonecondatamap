@@ -103,13 +103,13 @@ wheels = [
 name = "financial-forecast"
 version = "0.1.0"
 source = { virtual = "." }
-
-[package.optional-dependencies]
-analysis = [
+dependencies = [
     { name = "numpy" },
     { name = "openpyxl" },
     { name = "pandas" },
 ]
+
+[package.optional-dependencies]
 voice = [
     { name = "vosk" },
 ]
@@ -121,9 +121,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "numpy", marker = "extra == 'analysis'", specifier = ">=1.26" },
-    { name = "openpyxl", marker = "extra == 'analysis'", specifier = ">=3.1" },
-    { name = "pandas", marker = "extra == 'analysis'", specifier = ">=2.2" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "openpyxl", specifier = ">=3.1" },
+    { name = "pandas", specifier = ">=2.2" },
     { name = "vosk", marker = "extra == 'voice'", specifier = ">=0.3.45" },
 ]
 provides-extras = ["analysis", "voice"]

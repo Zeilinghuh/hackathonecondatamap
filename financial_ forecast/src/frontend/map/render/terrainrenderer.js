@@ -38,6 +38,8 @@ uniform float contourInterval;
 uniform float pixelRatio;
 uniform float densitySurface;
 uniform sampler2D mistTexture;
+uniform sampler2D selectionTexture;
+uniform float selectionOn;
 uniform mediump float mistPass;
 varying vec2 textureUV;
 varying float light;
@@ -72,7 +74,14 @@ void main() {
   // Income: pale blue ink on dark-blue lows. Density: white contours.
   float lightInk = (colour.b > colour.r && luminance < .12) ? 1.0 : 0.0;
   vec3 ink = mix(mix(vec3(.01,.025,.04),vec3(.5,.65,.8),lightInk),vec3(1.0),densitySurface);
-  gl_FragColor = vec4(mix(shaded,ink,lines),1.0);
+  vec3 result=mix(shaded,ink,lines);
+  if(selectionOn>.5) {
+    float selected=texture2D(selectionTexture,textureUV).a;
+    vec2 stepUV=max(fwidth(textureUV)*1.5,vec2(.0006));
+    float inside=min(min(texture2D(selectionTexture,textureUV+vec2(stepUV.x,0.0)).a,texture2D(selectionTexture,textureUV-vec2(stepUV.x,0.0)).a),min(texture2D(selectionTexture,textureUV+vec2(0.0,stepUV.y)).a,texture2D(selectionTexture,textureUV-vec2(0.0,stepUV.y)).a));
+    result=mix(result,vec3(.25,1.0,.96),selected*max(.18,1.0-inside));
+  }
+  gl_FragColor = vec4(result,1.0);
 }`;
 
 // Income, population density and employment share one renderer; null shows boundaries.
@@ -151,6 +160,8 @@ export class TerrainRenderer {
     gl.uniform1i(gl.getUniformLocation(this.program, "mistTexture"), 2);
     gl.uniform1i(gl.getUniformLocation(this.program,"previousSurface"),3);
     gl.uniform1i(gl.getUniformLocation(this.program,"previousMatched"),4);
+    gl.uniform1i(gl.getUniformLocation(this.program,"selectionTexture"),5);
+    this.selectionLocation=gl.getUniformLocation(this.program,'selectionOn');
     // Upload only at creation/restoration, never when moving the camera.
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
     this.maxTextureSize=maxSize;
@@ -163,6 +174,7 @@ export class TerrainRenderer {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D,this.textures[4]);
     gl.activeTexture(gl.TEXTURE0);
+    this.selectionTexture=this.createTexture();this.uploadTexture(this.selectionTexture,this.textureSource.selectionMask);
     gl.enable(gl.DEPTH_TEST);
     gl.clearColor(0,0,0,1);
     this.areaLayer = new AreaLayer(gl,this.areas);
@@ -174,6 +186,19 @@ export class TerrainRenderer {
     this.updateFrame("employment",this.textureSource.updateEmployment(observations,palette,missing));
     this.canvas.dataset.vegetationColouredAreas=String(this.areas.areas.filter(area=>
       Number.isFinite(observations[area.feature.properties.authority_code])).length);
+  }
+
+  setSelection(area) {
+    if(this.selectedArea===area)return;
+    this.selectedArea=area;
+    this.textureSource.select(area);
+    if(!this.gl.isContextLost())this.uploadTexture(this.selectionTexture,this.textureSource.selectionMask);
+    this.canvas.dataset.selectedArea=area?.feature.properties.authority_code || "";
+  }
+
+  updateMist() {
+    this.textureSource.mist=this.textureSource.buildMist(this.areas);
+    if(!this.gl.isContextLost())this.uploadTexture(this.textures[4],this.textureSource.mist);
   }
 
   camera(view,mode="3d") {
@@ -191,6 +216,14 @@ export class TerrainRenderer {
   }
 
   surfaceOf(surface) { return surface && this.meshes[surface] ? surface : null; }
+
+  project(lon,lat,view,mode,surface) {
+    const matrix=this.camera(view,mode).matrix,dem={income:this.textureSource.dem,density:this.textureSource.densityDem,employment:this.textureSource.employmentDem}[surface];
+    const x=lon,z=Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))*180/Math.PI;
+    const y=mode==='3d'&&dem?(this.textureSource.elevationAt(lon,lat,dem)??0)*(surface==='income'?HEIGHT_SCALE:DENSITY_HEIGHT_SCALE):0;
+    const a=matrix[0]*x+matrix[4]*y+matrix[8]*z+matrix[12],b=matrix[1]*x+matrix[5]*y+matrix[9]*z+matrix[13];
+    return {x:(a+1)*view.width/2,y:(1-b)*view.height/2};
+  }
 
   beginTransition(name) {
     this.endTransition();
@@ -255,6 +288,7 @@ export class TerrainRenderer {
     gl.uniformMatrix4fv(this.cameraLocation, false, matrix);
     gl.uniform1f(this.raisedLocation, surface && mode === "3d" ? 1 : 0);
     gl.uniform1f(this.contoursLocation,surface ? 1 : 0);
+    gl.uniform1f(this.selectionLocation,this.selectedArea&&surface?1:0);
     gl.uniform1f(this.densityLocation,surface === "density" ? 1 : 0);
     gl.uniform1f(this.heightScaleLocation,surface === "income" ? HEIGHT_SCALE : DENSITY_HEIGHT_SCALE);
     gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
@@ -264,6 +298,7 @@ export class TerrainRenderer {
     const previous=this.transition?.name===surface?this.transition.textures:null;
     gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,previous?.[0] || this.textures[{income:1,density:3,employment:5}[surface] ?? 0]);
     gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,previous?.[1] || this.textures[surface==="employment"?6:2]);
+    gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,this.selectionTexture);
     gl.activeTexture(gl.TEXTURE0);
     gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
     if (!surface) {gl.disableVertexAttribArray(3);gl.disableVertexAttribArray(4);this.areaLayer.draw(matrix,view,highlights);}

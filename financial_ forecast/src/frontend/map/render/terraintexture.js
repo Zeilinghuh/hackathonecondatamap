@@ -52,9 +52,11 @@ export class TerrainTexture {
       ? this.rasterise(this.densityDem, value => this.densityPalette[this.densityBandAt(value)]) : null;
     this.buildSurfaces(areas);
     this.mist = this.buildMist(areas);
+    this.selectionMask=document.createElement("canvas");
+    this.selectionMask.width=this.matched.width;this.selectionMask.height=this.matched.height;
   }
 
-  updateEmployment(observations,palette,missing) {
+  interpolate(observations,normalise) {
     const dem=this.dem,[west,south,east,north]=dem.bounds,top=mercator(north),bottom=mercator(south);
     const samples=this.areas.areas.filter(a=>Number.isFinite(observations[a.feature.properties.authority_code])).map(a=>({
       x:(a.bounds[0]+a.bounds[2])/2,z:(a.bounds[1]+a.bounds[3])/2,rate:observations[a.feature.properties.authority_code],
@@ -64,13 +66,18 @@ export class TerrainTexture {
     for(let r=0;r<h;r++)for(let c=0;c<w;c++) {
       const x=west+c/(w-1)*(east-west),z=top-r/(h-1)*(top-bottom);let sum=0,weights=0;
       for(const s of samples){const d=(x-s.x)**2+(z-s.z)**2+.001,weight=1/(d*d);sum+=s.rate*weight;weights+=weight;}
-      coarse[r*w+c]=weights?Math.max(0,Math.min(1000,(sum/weights-50)/45*1000)):0;
+      coarse[r*w+c]=weights?normalise(sum/weights):0;
     }
     for(let r=0;r<dem.height;r++)for(let c=0;c<dem.width;c++) {
       const x=c/(dem.width-1)*(w-1),z=r/(dem.height-1)*(h-1),x0=Math.min(w-2,Math.floor(x)),z0=Math.min(h-2,Math.floor(z)),a=x-x0,b=z-z0;
       values[r*dem.width+c]=(coarse[z0*w+x0]*(1-a)+coarse[z0*w+x0+1]*a)*(1-b)+(coarse[(z0+1)*w+x0]*(1-a)+coarse[(z0+1)*w+x0+1]*a)*b;
     }
-    this.employmentDem={...dem,values};
+    return {...dem,values};
+  }
+
+  updateEmployment(observations,palette,missing) {
+    this.employmentDem=this.interpolate(observations,value=>Math.max(0,Math.min(1000,(value-50)/45*1000)));
+    const [west,south,east,north]=this.dem.bounds,top=mercator(north),bottom=mercator(south);
     const mask=this.landMask(this.areas.areas.filter(a=>Number.isFinite(observations[a.feature.properties.authority_code])).map(a=>a.feature));
     const image=this.rasterise(this.employmentDem,value=>palette[vegetationBand(50+value*.045)].slice(0,3));
     this.employmentTerrain??=document.createElement("canvas");
@@ -85,10 +92,7 @@ export class TerrainTexture {
   }
 
   buildMist(areas) {
-    const values = areas.areas
-      .map(area => area.feature.properties.business_death_rate_percent)
-      .filter(Number.isFinite);
-    const low = Math.min(...values), high = Math.max(...values);
+    const low = 0, high = 25; // fixed percent scale across observed and simulated years
     const sharp = document.createElement("canvas");
     sharp.width = this.base.width; sharp.height = this.base.height;
     const context = sharp.getContext("2d");
@@ -98,7 +102,7 @@ export class TerrainTexture {
     for (const area of areas.areas) {
       const rate = area.feature.properties.business_death_rate_percent;
       if (!Number.isFinite(rate)) continue;
-      const intensity = high === low ? .65 : .18 + .74 * (rate - low) / (high - low);
+      const intensity = .92 * Math.max(0,Math.min(1,(rate-low)/(high-low)));
       context.fillStyle = `rgba(197,226,241,${intensity})`;
       context.fill(area.path, "evenodd");
     }
@@ -161,14 +165,18 @@ export class TerrainTexture {
   }
 
   updateFrame(name,frame,range,features,reference) {
-    if(name==="income" && !this.historyPalette) {
+    if(name==="income" && !this.historyPalette && reference?.values) {
       const sorted=[...reference.values].sort((a,b)=>a-b);
       this.colourRange=[sorted[Math.floor(sorted.length*.02)],sorted[Math.floor(sorted.length*.98)]];
       if(this.colourRange[1]<=this.colourRange[0])this.colourRange=[0,1000];
       this.peakHeight=reference.values.reduce((max,value)=>Math.max(max,value),0);this.historyPalette=true;
     }
     const density=name==="density",field=density?"population_density":"income_per_head";
-    const dem={...(density?this.densityDem:this.dem),values:frame.values};
+    const values=frame.values ?? this.interpolate(frame.observations,value=>{
+      const v=density?Math.log10(Math.max(1,value)):value;
+      return Math.max(0,Math.min(1000,(v-range[0])/(range[1]-range[0])*1000));
+    }).values;
+    const dem={...(density?this.densityDem:this.dem),values};
     if(density){this.densityDem=dem;this.densityRange=range;}else this.dem=dem;
     const mask=this.landMask(features.filter(f=>f.properties[field]!==null));
     const image=this.rasterise(dem,value=>density?this.densityPalette[this.densityBandAt(value)]:this.palette[this.colourBandAt(value)]);
@@ -179,6 +187,12 @@ export class TerrainTexture {
     const matched=this.matched.getContext("2d");matched.resetTransform();matched.clearRect(0,0,this.matched.width,this.matched.height);
     matched.scale(this.matched.width,this.matched.height);matched.fillStyle="white";matched.fill(mask,"nonzero");
     return dem;
+  }
+
+  select(area) {
+    const canvas=this.selectionMask,context=canvas.getContext("2d");
+    context.resetTransform();context.clearRect(0,0,canvas.width,canvas.height);
+    if(area){context.scale(canvas.width,canvas.height);context.fillStyle="white";context.fill(this.landMask([area.feature]),"nonzero");}
   }
 
   rasterise(dem, colourAt) {

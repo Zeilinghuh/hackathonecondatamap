@@ -9,10 +9,22 @@ Hold **Speak to Capri** at the bottom left, speak, then release to convert and s
 The frontend is grouped under `src/frontend/GUI/capri/`:
 
 - `capri.js`: chat, draggable window, orb movement/idle animations and area actions.
+- `actions.js`: validated application commands, local navigation parsing and summaries from displayed data.
 - `voice.js`: push-to-talk capture and submission.
 - `voiceprocessor.js`: the separate browser AudioWorklet, converting audio to bounded 16 kHz PCM chunks.
 
 The backend remains `src/backend/capri/capri.py` for AI chat and `speech.py` for native local transcription. The voice engine is kept separate because it manages model loading and audio sessions, not chat prompts. Set up voice from the repository root with `uv sync --no-dev --extra voice`, then `uv run --no-dev --extra voice python "financial_ forecast/src/backend/capri/speech.py"`. Start the server using the same voice extra. Model weights stay in ignored `build/speech/`; microphone audio is not saved. Model source/license: https://alphacephei.com/vosk/models (small English 0.15, Apache 2.0).
+
+Capri can select/focus an authority, change years, switch layers/views, control
+playback/zoom/sidebar/sound and edit simulations. “Find Barnet in 2019” works
+locally; broader requests use the provider's `control_app` function call. Both
+paths execute the same allowlisted actions through existing app controls.
+Model-generated actions are checked before they reach the browser, then checked
+again before execution; no JavaScript, DOM selectors or shell commands are accepted.
+Action replies use the resulting map values. In simulation mode, server chat
+context is rebuilt from the applied scenario, including missing coverage and
+source years, rather than trusting numbers supplied by a client. See
+[simulation details](simulation.md).
 
 Capri uses the original sprite sheet for her orb, character, talking and peeking poses. Fling momentum, bouncing, brief reaction labels and subtle sprite transforms remain; the inconsistent replacement reaction sheet has been removed. Drag the chat header to move it; its position stays within the map. Right-click an area for chat/explanations or comparisons. Idle peeks and occasional mischief remain enabled, respecting reduced-motion preferences.
 

@@ -49,7 +49,7 @@ export class CapriCompanion {
     this.speech=mapPanel.querySelector(".capri-bubble");
     this.speech.querySelector(".bubble-close").addEventListener("click",()=>this.dismissBubble());
     this.speech.querySelector(".bubble-talk").addEventListener("click",()=>{const action=this.speechAction;this.dismissBubble();if(action)action();else this.setOpen(true);});
-    this.appendMessage("assistant", "Hey, I'm Capri. Pick an area and ask me about income, population or employment - or just say hi~");
+    this.appendMessage("assistant", "Hey, I'm Capri. Try ‘find Barnet in 2019’, ‘show employment in 3D’ or ask me to edit a simulation. Hold Speak to Capri to talk.");
     this.button.addEventListener("click", () => {
       if (this.dragged) { this.dragged = false; return; }
       this.setOpen(!this.open);
@@ -323,18 +323,24 @@ export class CapriCompanion {
     if(spoken===null)this.input.value = "";
     const pending = this.appendMessage("assistant", "One sec…", "pending");
     try {
+      const plan=this.actions?.plan(message);
+      let reply;
+      if(plan)reply=await this.actions.execute(plan);
+      else {
       const response = await fetch("/api/capri/chat", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({message, history:this.history.slice(-8), selected_authority:this.selectedAuthority, selected_year:this.selectedYear}),
+        body:JSON.stringify({message, history:this.history.slice(-8), selected_authority:this.selectedAuthority, selected_year:this.selectedYear, app_state:this.actions?.state(),scenario:this.actions?.forecast.enabled?this.actions.forecast.appliedInputs:null}),
         signal:AbortSignal.timeout(35000),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "The link dropped. Please try again.");
-      if (typeof result.reply !== "string" || !result.reply.trim()) throw new Error("Empty reply. Please try again.");
+      reply=result.actions?.length?await this.actions.execute(result.actions):result.reply;
+      }
+      if (typeof reply !== "string" || !reply.trim()) throw new Error("Empty reply. Please try again.");
       pending.element.classList.remove("pending");
       pending.content.textContent = "";
-      await this.typeReply(result.reply, pending.content);
-      this.history.push({role:"user",content:message},{role:"assistant",content:result.reply});
+      await this.typeReply(reply, pending.content);
+      this.history.push({role:"user",content:message},{role:"assistant",content:reply});
       this.history = this.history.slice(-8);
       this.status.textContent = "Link ready · Just us and the map";
     } catch (error) {

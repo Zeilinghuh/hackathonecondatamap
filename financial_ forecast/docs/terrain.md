@@ -165,3 +165,18 @@ reuse Earcut triangles and respect holes and islands. A reusable pool holds at
 most **48** CSS tree elements, with no more than **28** shown on desktop or
 **16** on narrow maps. Screen spacing prevents clumps, and labels sit above the
 trees. Normal picking remains available; no animation loop runs while idle.
+
+
+## Simulated surfaces
+
+`GUI/forecast.js` joins model LADs to current planning areas using the same
+normalised-name convention as the native source joins. It supplies future
+observations to the existing `Timeline`, never a second year slider.
+`TerrainTexture.interpolate()` prepares a small inverse-distance field for
+simulated income/density and employment, then expands it onto the shared grid.
+The income and log-density ranges come from recorded history; employment keeps
+50–95%. Scales never change to disguise scenario differences. Only areas with
+model values enter the colour/contour masks. Camera movement reuses the resulting
+textures and meshes. A separate cached selection mask highlights a chosen area
+on the actual raised surface. Business failure textures update only when the
+overlay is visible. See [simulation details](simulation.md).

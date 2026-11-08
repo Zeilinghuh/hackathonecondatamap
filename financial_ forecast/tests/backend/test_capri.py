@@ -9,10 +9,58 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src" / "backend"))
-from capri.capri import DEFAULT_MODEL, CapriError, CapriService
+from capri.capri import DEFAULT_MODEL, CapriError, CapriService, validate_actions
 
 
 class CapriTests(unittest.TestCase):
+    def test_model_actions_are_structured_and_validated(self):
+        actions = [
+            {"type": "select_area", "target": "Barnet"},
+            {"type": "set_year", "year": 2019},
+        ]
+        answer = {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "control_app",
+                                    "arguments": json.dumps({"actions": actions}),
+                                }
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+        with (
+            patch.object(
+                self.service, "_settings", return_value=("unit-test-key", DEFAULT_MODEL)
+            ),
+            patch(
+                "capri.capri.urlopen",
+                return_value=io.BytesIO(json.dumps(answer).encode()),
+            ) as send,
+        ):
+            result = self.service.reply({"message": "Find Barnet in 2019"}, {})
+        self.assertEqual(result["actions"], actions)
+        self.assertEqual(
+            json.loads(send.call_args.args[0].data)["tools"][0]["function"]["name"],
+            "control_app",
+        )
+        for invalid in (
+            [{"type": "eval"}],
+            [{"type": "set_year", "year": float("nan")}],
+            [{"type": "set_sound", "enabled": "true"}],
+            [{"type": "set_rate", "value": 2}],
+            [{"type": "set_year"}],
+            [{"type": "zoom", "factor": 2, "code": "bad"}],
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_actions(invalid)
+
     def setUp(self):
         self.service = CapriService(Path("unused-test-project"))
 

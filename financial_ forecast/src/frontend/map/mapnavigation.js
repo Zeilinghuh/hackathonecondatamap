@@ -136,6 +136,15 @@ export class MapNavigation {
     this.changed();
   }
 
+  focus(bounds) {
+    const view=this.view,[west,south,east,north]=bounds;
+    const scale=Math.min(view.width*.55/Math.max(.15,east-west),view.height*.55/Math.max(.15,north-south));
+    view.zoom=Math.max(1,Math.min(12,scale/view.fitScale));view.scale=view.fitScale*view.zoom;
+    view.offsetX=view.width/2-((west+east)/2-view.west)*view.scale;
+    view.offsetY=view.height/2-(view.north-(south+north)/2)*view.scale;
+    this.changed();
+  }
+
   pan(dx,dy) {
     if (this.mode === "3d") this.pan3D(this.view,dx,dy);
     else { this.view.offsetX += dx; this.view.offsetY += dy; }
