@@ -55,12 +55,12 @@ Drag Capri's chat header to move it. The original character/orb art is retained.
 Capri's frontend is grouped in `src/frontend/GUI/capri/`: `capri.js` contains the companion and area actions, `voice.js` handles push-to-talk, and `voiceprocessor.js` is the browser's separate audio worklet.
 
 Use **Data year** to drag, scroll or step through the available observations;
-**Play** advances one year at a time. Income covers 1997–2024 and density
+**Play** advances one year at a time.
 During Play, each step blends the terrain heights, lighting, colours and contours
 over 650 ms within the 750 ms year interval. These intermediate shapes are visual
 interpolations, not extra observations. Manual year selection and Pause settle on
 the recorded frame immediately; reduced-motion mode keeps discrete steps.
-1991–2025. Employment covers 2004–2023. Business failure is a fixed 2024 overlay and does not change with the year slider. The sea grid is visible in both 2D and 3D. History loads once in the background and is cached. Height/colour
+Income covers 1997–2024 and population density 1991–2025. Employment covers 2004–2023. Business failure is a fixed 2024 overlay and does not change with the year slider. The sea grid is visible in both 2D and 3D. History loads once in the background and is cached. Height/colour
 scales stay fixed across years. Missing values remain unshaded; income is
 nominal (not inflation-adjusted) and all years use the current map boundaries.
 
