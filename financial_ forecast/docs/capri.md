@@ -2,7 +2,7 @@
 
 Sound effects are controlled by SFX ON/OFF in the map navigation; the preference is remembered. Buttons, sliders and area selections use cached CC0 Kenney samples, and orb wall hits vary their sound with impact speed. Capri's text animation drives original synthesized vowel chatter. Effects are silenced during microphone capture and while the tab is hidden. Sources and licence are in `src/frontend/GUI/assets/sfx/`. Audio stays in the existing GUI controls module.
 
-Map legends share a vertical, scrollable stack above the speak control, so mist and a data-layer legend remain separate. Timeline playback advances every 750 ms (previously 1000 ms).
+Map legends share a vertical, scrollable stack above the speak control, so mist and a data-layer legend remain separate. Timeline playback advances every 650 ms, with a 550 ms GPU transition during Play.
 
 Hold **Speak to Capri** at the bottom left, speak, then release to convert and send the question. Space or Enter works while the button is focused. Releasing stops microphone capture immediately and flushes the remaining audio before sending. Releasing before the microphone is ready, cancelling the gesture, leaving the tab or closing chat cancels capture. There is no wake phrase, ambient listening, browser speech-service fallback or automatic restart. Typed drafts remain intact.
 

@@ -8,10 +8,10 @@ __pycache__/
 *.py[cod]
 
 # RichDEM generated build outputs
-richdem-src/.git.richdem-backup/
-richdem-src/wrappers/pyrichdem/build/
-richdem-src/wrappers/pyrichdem/*.egg-info/
-richdem-src/wrappers/pyrichdem/_richdem*.pyd
+financial_ forecast/richdem-src/.git.richdem-backup/
+financial_ forecast/richdem-src/wrappers/pyrichdem/build/
+financial_ forecast/richdem-src/wrappers/pyrichdem/*.egg-info/
+financial_ forecast/richdem-src/wrappers/pyrichdem/_richdem*.pyd
 
 # General build / distribution outputs
 build/

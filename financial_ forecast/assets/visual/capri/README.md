@@ -10,9 +10,12 @@ https://github.com/balaqiang/capri-desktop/blob/master/assets/capri/capri-cutout
 
 The transparent 1774 × 887 PNG contains four columns. The top 40% contains four
 red glitch-orb poses; the bottom 60% contains closed-mouth, small talking-mouth,
-open talking-mouth and blink poses. `GUI/capri.js` selects the animation frames;
-CSS uses the appropriate source-row proportions and pixelated rendering. The
-character pops out when chat opens and cycles talking frames as a reply types.
+open talking-mouth and blink poses. `GUI/capri/capri.js` selects the animation frames;
+CSS uses the appropriate source-row proportions: the orb retains pixelated rendering,
+while the chat portrait is displayed at 180 × 216 with smooth scaling and a subtle
+brightness/glow lift so the existing facial detail is easier to see. A smaller
+portrait is used when space is limited. `GUI/capri/capri.js` keeps it outside chat.
+The character pops out when chat opens and cycles talking frames as a reply types.
 
 ## Generation prompt
 
