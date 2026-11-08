@@ -27,18 +27,25 @@ export class TerrainControls {
     document.querySelector("#view-3d").addEventListener("click", () => onMode("3d"));
     const sidebar = document.querySelector("#sidebar");
     const sidebarToggle = document.querySelector("#sidebar-toggle");
+    const shell = document.querySelector(".app-shell");
     const setSidebar = collapsed => {
-      sidebar.hidden = collapsed;
-      document.querySelector(".app-shell").classList.toggle("sidebar-collapsed", collapsed);
+      // Keep the panel mounted so CSS can animate it; inert removes closed
+      // controls from keyboard focus immediately, including during the slide.
+      if (collapsed && sidebar.contains(document.activeElement)) sidebarToggle.focus({preventScroll:true});
+      sidebar.inert = collapsed;
+      sidebar.setAttribute("aria-hidden", String(collapsed));
+      shell.classList.toggle("sidebar-collapsed", collapsed);
       sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
       sidebarToggle.textContent = collapsed ? "◂ Show panel" : "Hide panel ▸";
       try { localStorage.setItem("terrain.sidebarCollapsed", String(collapsed)); } catch {}
     };
-    sidebarToggle.addEventListener("click", () => setSidebar(!sidebar.hidden));
+    sidebarToggle.addEventListener("click", () => setSidebar(sidebarToggle.getAttribute("aria-expanded") === "true"));
     try {
       const saved = localStorage.getItem("terrain.sidebarCollapsed");
       setSidebar(saved === null ? matchMedia("(max-width:760px)").matches : saved === "true");
-    } catch {}
+    } catch { setSidebar(matchMedia("(max-width:760px)").matches); }
+    // Restore saved layout without an entrance animation on page load.
+    requestAnimationFrame(() => requestAnimationFrame(() => shell.classList.add("sidebar-ready")));
   }
 
   // Raised, contoured surface for the layer: "income", "density" or null (flat borders + hover).
