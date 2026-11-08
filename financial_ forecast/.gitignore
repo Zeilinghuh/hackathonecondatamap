@@ -36,3 +36,18 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local tooling, test reports and merge/editor leftovers
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+playwright-report/
+test-results/
+*.orig
+*.rej
+*.swp
+*.swo

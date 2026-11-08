@@ -1,5 +1,9 @@
 # Project review — 7 November 2026
 
+## Current organisation — 8 November 2026
+
+Supersedes the earlier wake-word notes below: Capri frontend UI/helpers and area actions are consolidated in `GUI/capri/capri.js`, with push-to-talk in `voice.js` and the required audio worklet beside it. Removed the wake matcher, browser recognition fallback, obsolete wake-word test and replacement reaction asset. Original sprite artwork, draggable chat, momentum and idle behaviour remain. Speech runs only during a button hold and flushes its final transcript on release. Vegetation and business-death changes are preserved. Added tooling/report/editor leftovers to `.gitignore`. No tests were run for this change, as requested.
+
 ## Follow-up — 8 November 2026
 
 Checked first-party source hashes and the frontend import graph: no identical source files, missing imports or unused modules. `voiceprocessor.js` is a separate AudioWorklet entry loaded by `localrecognition.js`. Kept vendored RichDEM/Earcut, their licenses, source assets and original planning notes. Kept the offline indicator analysis scripts, which serve different research purposes; consolidated their duplicated workbook-reading code into `dataset.py`. Before/after data comparison matches all 689 source-area observations across six indicators. The current indicators have too few complete local-authority rows for regression, so the script now reports that limitation cleanly. Analysis dependencies are an optional uv extra.

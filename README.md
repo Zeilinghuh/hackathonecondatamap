@@ -46,13 +46,11 @@ uv run --no-dev --extra voice python "financial_ forecast/src/backend/server.py"
 ```
 
 The setup downloads a 40 MB English model into ignored `build/speech/`.
-Enable MIC, allow microphone access, and say **Hey Capri** followed by a question.
-Questions auto-send after a pause. Mute stops capture; hidden tabs pause it.
-When local voice is installed, speech is processed on the local app server.
-Browser speech recognition remains a fallback when local voice is not installed.
-The voice label confirms when capture actually starts and shows what was heard.
-Drag Capri's chat header to reposition it. Fling the orb for dizzy/annoyed reactions;
-idle peeking and occasional mischief are always enabled (reduced motion is respected).
+Hold **Speak to Capri** at the bottom left, speak, then release to transcribe and auto-send.
+Microphone capture runs only during a hold; keyboard users can hold Space or Enter on the button.
+Voice uses the local server and the optional voice setup above.
+Drag Capri's chat header to move it. The original character/orb art is retained.
+Capri's frontend is grouped in `src/frontend/GUI/capri/`: `capri.js` contains the companion and area actions, `voice.js` handles push-to-talk, and `voiceprocessor.js` is the browser's separate audio worklet.
 
 Use **Data year** to drag, scroll or step through the available observations;
 **Play** advances one year at a time. Income covers 1997–2024 and density

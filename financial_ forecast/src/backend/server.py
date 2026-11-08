@@ -177,7 +177,7 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             if route == "/api/capri/speech":
                 if not 0 <= size <= 32000 or self.headers.get_content_type() != "application/octet-stream":
                     raise ValueError("Send at most one second of 16 kHz mono PCM audio.")
-                self.send_json(SPEECH.feed(self.headers.get("X-Speech-Session", ""), self.rfile.read(size)))
+                self.send_json(SPEECH.feed(self.headers.get("X-Speech-Session", ""), self.rfile.read(size), finish=self.headers.get("X-Speech-Final") == "true"))
                 return
             if not 0 < size <= 32768:
                 raise CapriError("The chat request is too large or empty.", 413)

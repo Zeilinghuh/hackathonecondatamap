@@ -1,8 +1,6 @@
 // The companion is a local animated UI. Only submitting chat calls the AI.
-import {VoiceInput} from "./voiceinput.js";
-import {ChatDrag} from "./chatdrag.js";
-import {OrbPlay} from "./orbplay.js";
-const FRAMES={orb:[0,1,2,3],idle:[0,0,0,3],talking:[1,2,1,0],dizzy:[0,1],angry:[2,3]};
+import {VoiceInput} from "./voice.js";
+const FRAMES={orb:[0,1,2,3],idle:[0,0,0,3],talking:[1,2,1,0]};
 export class CapriCompanion {
   constructor(mapPanel) {
     this.mapPanel = mapPanel;
@@ -43,7 +41,6 @@ export class CapriCompanion {
     this.chatDrag=new ChatDrag(this.chat,mapPanel,()=>this.place());
     this.voice=new VoiceInput(mapPanel,{
       isBusy:()=>this.busy,
-      onWake:()=>this.setOpen(true,false),
       onQuestion:question=>{this.setOpen(true,false);this.send(question);},
     });
     this.play=new OrbPlay(this);
@@ -160,7 +157,7 @@ export class CapriCompanion {
   }
 
   setOpen(open,focus=true) {
-    if(!open)this.voice.cancelQuestion();
+    if(!open)this.voice.cancel();
     this.play.endIdle();this.flying=false;
     this.dismissBubble();
     this.open = open;
@@ -242,9 +239,8 @@ export class CapriCompanion {
         this.widget.style.transform = transform;
         this.lastTransform = transform;
       }
-      const reaction=!this.open && this.play.until && !this.play.peekUntil;
-      const frames = reaction?FRAMES[this.play.mood]:this.open?FRAMES[this.talking?"talking":"idle"]:FRAMES.orb;
-      const frame = this.reducedMotion.matches ? frames[0] : frames[Math.floor(time / (reaction?240:this.talking?150:this.open?950:210)) % frames.length];
+      const frames = this.open?FRAMES[this.talking?"talking":"idle"]:FRAMES.orb;
+      const frame = this.reducedMotion.matches ? frames[0] : frames[Math.floor(time / (this.talking?150:this.open?950:210)) % frames.length];
       if (frame !== this.lastFrame) {
         this.sprite.style.backgroundPositionX = `${frame * 100/3}%`;
         this.lastFrame = frame;
@@ -359,4 +355,116 @@ export class CapriCompanion {
     this.input.value="Explain "+properties.authority_name+"'s income per head and population density, and what they mean on this map. Mention any missing data or limits.";
     this.send();
   }
+}
+
+class ChatDrag {
+  constructor(chat,panel,onMove) {
+    Object.assign(this,{chat,panel,onMove});
+    const header=chat.querySelector(".capri-header");
+    header.tabIndex=0;header.title="Drag to move · Arrow keys when focused";
+    header.setAttribute("aria-label","Move Capri chat. Drag or use arrow keys.");
+    header.addEventListener("pointerdown",event=>{
+      if(event.button!==0 || event.target.closest("button"))return;
+      const rect=chat.getBoundingClientRect(),parent=panel.getBoundingClientRect();
+      this.drag={x:event.clientX,y:event.clientY,left:rect.left-parent.left,top:rect.top-parent.top};
+      header.setPointerCapture(event.pointerId);event.preventDefault();
+    });
+    header.addEventListener("pointermove",event=>{if(this.drag)this.move(this.drag.left+event.clientX-this.drag.x,this.drag.top+event.clientY-this.drag.y);});
+    const end=()=>{this.drag=null;};
+    for(const type of ["pointerup","pointercancel","lostpointercapture"])header.addEventListener(type,end);
+    header.addEventListener("keydown",event=>{
+      if(event.target!==header)return;
+      const d={ArrowLeft:[-16,0],ArrowRight:[16,0],ArrowUp:[0,-16],ArrowDown:[0,16]}[event.key];
+      if(d){event.preventDefault();event.stopPropagation();const r=chat.getBoundingClientRect(),p=panel.getBoundingClientRect();this.move(r.left-p.left+d[0],r.top-p.top+d[1]);}
+    });
+  }
+  move(x,y) {
+    this.position={x:Math.max(8,Math.min(this.panel.clientWidth-this.chat.offsetWidth-8,x)),y:Math.max(8,Math.min(this.panel.clientHeight-this.chat.offsetHeight-8,y))};
+    Object.assign(this.chat.style,{left:this.position.x+"px",top:this.position.y+"px",right:"auto",bottom:"auto"});this.onMove();
+  }
+  resize() {if(this.position && !this.chat.hidden)this.move(this.position.x,this.position.y);}
+}
+
+// Idle play and reactions stay local; neither invokes chat nor redraws the map.
+class OrbPlay {
+  constructor(companion) {
+    this.c=companion;this.next=performance.now()+12000;
+  }
+  endIdle() {this.peekUntil=0;this.mischief=false;this.c.widget.classList.remove("is-peeking");this.c.roamTarget=null;this.next=performance.now()+12000+Math.random()*10000;}
+  react(mood) {
+    this.endIdle();this.mood=mood;this.until=performance.now()+4200;
+    this.c.widget.dataset.mood=mood;
+    this.c.button.querySelector(".capri-name").textContent=mood==="angry"?"SERIOUSLY?":"DIZZY";
+    this.c.button.title=mood==="angry"?"Excellent. I'm a pinball now.":"The map was already spinning. Thanks.";
+  }
+  update(time) {
+    const c=this.c;
+    if(this.until && time>this.until){this.until=0;delete c.widget.dataset.mood;c.button.querySelector(".capri-name").textContent="CAPRI";c.button.title="Click to chat · Drag and release to fling";}
+    const occupied=c.open || c.busy || c.dragging || c.approach || !c.speech.hidden || c.flying || c.hovered || c.focused || document.activeElement?.matches("input,textarea");
+    if(occupied || this.until || c.reducedMotion.matches) {
+      if(this.peekUntil)this.endIdle();return;
+    }
+    if(this.peekUntil) {
+      if(time>this.peekUntil){this.endIdle();c.roamAt=time+1000;return;}
+      const pointer=c.lastPointer,rect=c.mapPanel.getBoundingClientRect();
+      if(pointer)c.sprite.style.setProperty("--peek-look",Math.max(-5,Math.min(5,(pointer.x-rect.left-c.x-38)/60))+"px");
+    } else if(time>this.next) {
+      this.peekUntil=time+4200;c.widget.classList.add("is-peeking");
+      if(Math.random()<.16 && c.lastPointer) {
+        const r=c.mapPanel.getBoundingClientRect();
+        c.roamTarget={x:Math.max(12,Math.min(r.width-100,c.lastPointer.x-r.left+8)),y:Math.max(110,Math.min(r.height-100,c.lastPointer.y-r.top+8))};
+        c.roamAt=time;this.mischief=true;
+      } else this.mischief=false;
+    }
+  }
+}
+
+// Map actions stay local until the user asks Capri for an explanation.
+export class AreaMenu {
+  constructor({canvas,panel,capri,pick,select,getYear,pause}) {
+    Object.assign(this,{canvas,panel,capri,pick,select,getYear,pause});
+    panel.insertAdjacentHTML("beforeend",`<section class="area-menu" aria-label="Area actions" hidden><strong></strong><div role="menu"><button role="menuitem" data-action="ask">Ask Capri</button><button role="menuitem" data-action="explain">Explain this area</button><button role="menuitem" data-action="compare">Compare with another area</button><button role="menuitem" disabled>Spawn 100 clouds · Coming later</button></div></section>`);
+    this.element=panel.querySelector(".area-menu");
+    canvas.addEventListener("contextmenu",event=>{event.preventDefault();const r=canvas.getBoundingClientRect();this.open({x:event.clientX-r.left,y:event.clientY-r.top});});
+    canvas.addEventListener("keydown",event=>{if(event.key==="ContextMenu" || (event.shiftKey && event.key==="F10")){event.preventDefault();this.open({x:canvas.clientWidth/2,y:canvas.clientHeight/2});}});
+    document.addEventListener("pointerdown",event=>{if(!this.element.contains(event.target))this.close();});
+    document.addEventListener("keydown",event=>{if(event.key==="Escape"){const visible=!this.element.hidden;this.reset();if(visible)canvas.focus({preventScroll:true});}});
+    this.element.addEventListener("keydown",event=>{
+      const buttons=[...this.element.querySelectorAll("button:not(:disabled)")];
+      if(event.key==="ArrowDown" || event.key==="ArrowUp"){event.preventDefault();buttons[(buttons.indexOf(document.activeElement)+(event.key==="ArrowDown"?1:buttons.length-1))%buttons.length].focus();}
+      if(event.key==="Tab")this.close();
+    });
+    this.element.addEventListener("click",event=>{
+      const action=event.target.dataset.action;if(!action)return;
+      const {area,point}=this.current,properties={...area.feature.properties},year=getYear();
+      this.close();this.comparing=null;
+      if(action==="compare") {
+        this.comparing={properties,year};
+        capri.speakAt(point,`Pick another area to compare with ${properties.authority_name}. Escape cancels.`);
+      } else if(action==="explain")capri.explainArea(properties);
+      else capri.speakAt(point,`${properties.authority_name}${year?" · "+year:""}. What would you like to explore?`,()=>capri.setOpen(true));
+    });
+    panel.addEventListener("wheel",()=>this.close(),{passive:true});
+    new ResizeObserver(()=>this.close()).observe(panel);
+  }
+  open(point) {
+    this.close();const hit=this.pick(point);if(!hit)return;
+    this.pause();this.select(hit.area,hit.position);this.current={area:hit.area,point};
+    this.element.querySelector("strong").textContent=hit.area.feature.properties.authority_name;
+    this.element.hidden=false;
+    this.element.style.left=Math.max(8,Math.min(point.x,this.panel.clientWidth-this.element.offsetWidth-8))+"px";
+    this.element.style.top=Math.max(8,Math.min(point.y,this.panel.clientHeight-this.element.offsetHeight-8))+"px";
+    this.element.querySelector("button").focus({preventScroll:true});
+  }
+  selected(area) {
+    if(!this.comparing)return;
+    const {properties:first,year}=this.comparing,second=area.feature.properties;
+    if(first.authority_code===second.authority_code)return;
+    this.comparing=null;
+    const valid=first.income_per_head!=null && second.income_per_head!=null;
+    const difference=valid?`${second.authority_name}'s income per head is £${Math.round(Math.abs(second.income_per_head-first.income_per_head)).toLocaleString("en-GB")} ${second.income_per_head>=first.income_per_head?"higher":"lower"} than ${first.authority_name}'s.`:"Income data is missing for one of these areas.";
+    this.capri.speakAt(this.current.point,`${year?year+" · ":""}${difference}`);
+  }
+  close() { this.element.hidden=true; }
+  reset() { this.close();this.comparing=null;this.capri.dismissBubble(); }
 }

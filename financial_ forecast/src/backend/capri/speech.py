@@ -21,7 +21,7 @@ class SpeechService:
     def status(self):
         return {"ready": bool(importlib.util.find_spec("vosk") and all((MODEL_ROOT / MODEL_NAME / name).is_file() for name in MODEL_FILES))}
 
-    def feed(self, session, audio):
+    def feed(self, session, audio, finish=False):
         if not re.fullmatch(r"[a-f0-9]{32}", session) or len(audio) % 2:
             raise ValueError("Invalid speech session or PCM audio.")
         with self.lock:
@@ -40,8 +40,14 @@ class SpeechService:
                 self.sessions[session] = (KaldiRecognizer(self.model, 16000), now)
             recognizer, _ = self.sessions[session]
             self.sessions[session] = (recognizer, now)
-            final = bool(recognizer.AcceptWaveform(audio))
-            result = json.loads(recognizer.Result() if final else recognizer.PartialResult())
+            if finish:
+                if audio:
+                    recognizer.AcceptWaveform(audio)
+                final = True
+                result = json.loads(recognizer.FinalResult())
+            else:
+                final = bool(recognizer.AcceptWaveform(audio))
+                result = json.loads(recognizer.Result() if final else recognizer.PartialResult())
             return {"text": result.get("text" if final else "partial", ""), "final": final}
 
     def close(self, session):
