@@ -28,12 +28,9 @@ uniform float contoursOn;
 uniform float contourInterval;
 uniform float pixelRatio;
 uniform float densitySurface;
-<<<<<<< HEAD
 uniform float vegetationBase;
-=======
 uniform sampler2D mistTexture;
 uniform mediump float mistPass;
->>>>>>> 90613ff4dd33c69c229cb82596877345898cdf72
 varying vec2 textureUV;
 varying float light;
 varying float heightValue;
@@ -138,6 +135,7 @@ export class TerrainRenderer {
       return texture;
     });
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D,this.textures[4]);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
     gl.clearColor(11/255,16/255,24/255,1);
@@ -222,9 +220,6 @@ export class TerrainRenderer {
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3}[surface] ?? 0]);
     gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
-<<<<<<< HEAD
-    if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation);
-=======
     if (mistEnabled) {
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -239,8 +234,7 @@ export class TerrainRenderer {
       gl.disable(gl.BLEND);
       gl.activeTexture(gl.TEXTURE0);
     }
-    if (!surface) this.areaLayer.draw(matrix,view,highlights);
->>>>>>> 90613ff4dd33c69c229cb82596877345898cdf72
+    if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation);
   }
 
   pan(view, dx, dy) {

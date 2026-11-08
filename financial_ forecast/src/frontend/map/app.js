@@ -147,13 +147,10 @@ async function initialise() {
       canvas,index:areas,renderer,getView:()=>navigation.view,getMode:()=>navigation.mode,
       getSurface:()=>controls.surface,isDragging:()=>navigation.pointers.size>0,
       onChange:requestDraw,onSelect:showArea,
-<<<<<<< HEAD
-      describe:({authority_name:name,population_density:density,employment_rate:rate})=>
-        name+(controls.vegetation?" · "+(Number.isFinite(rate)?rate.toFixed(1)+"% employed":"No employment data"):(density===null?"":" · "+formatDensity(density))),
-=======
-      describe:({authority_name:name,population_density:density,business_death_rate_percent:rate})=>
-        name+(density===null?"":" · "+formatDensity(density))+(Number.isFinite(rate)?" · "+rate.toFixed(1)+"% deaths":""),
->>>>>>> 90613ff4dd33c69c229cb82596877345898cdf72
+      describe:({authority_name:name,population_density:density,employment_rate:employment,business_death_rate_percent:deathRate})=>
+        name+(controls.vegetation
+          ?" · "+(Number.isFinite(employment)?employment.toFixed(1)+"% employed":"No employment data")
+          :(density===null?"":" · "+formatDensity(density))+(Number.isFinite(deathRate)?" · "+deathRate.toFixed(1)+"% deaths":"")),
     });
     controls.setReady();controls.setLegend(texture.colourRange,texture.peakHeight);
     const density=terrain.metadata.population_density;
