@@ -1,6 +1,7 @@
 import { cameraBasis, terrainMesh, pickTerrain, latitudeAt, HEIGHT_SCALE, DENSITY_HEIGHT_SCALE } from "../terrainmath.js";
 import { createProgram, uploadBuffer } from "./gl.js";
 import { AreaLayer } from "./arealayer.js";
+import { SeaGrid } from "./seagrid.js";
 
 const vertexSource = `
 attribute vec3 position;
@@ -124,6 +125,7 @@ export class TerrainRenderer {
     gl.enable(gl.DEPTH_TEST);
     gl.clearColor(11/255,16/255,24/255,1);
     this.areaLayer = new AreaLayer(gl,this.areas);
+    this.seaGrid = new SeaGrid(gl);
   }
 
   camera(view,mode="3d") {
@@ -166,6 +168,10 @@ export class TerrainRenderer {
     const gl = this.gl;
     if (gl.isContextLost()) return;
     surface = this.surfaceOf(surface);
+    gl.viewport(0,0,this.canvas.width,this.canvas.height);
+    gl.disable(gl.BLEND);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    const camera=this.camera(view,mode),matrix=camera.matrix;
+    if(mode==="3d")this.seaGrid.draw(matrix,camera.centre);
     gl.useProgram(this.program);
     gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface || "income"]);
     for (const [index,size,offset] of [[0,3,0],[1,3,12],[2,2,24]]) {
@@ -174,8 +180,6 @@ export class TerrainRenderer {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    const matrix = this.camera(view,mode).matrix;
     gl.uniformMatrix4fv(this.cameraLocation, false, matrix);
     gl.uniform1f(this.raisedLocation, surface && mode === "3d" ? 1 : 0);
     gl.uniform1f(this.contoursLocation,surface ? 1 : 0);

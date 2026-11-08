@@ -6,19 +6,18 @@ import { MapNavigation } from "./mapnavigation.js";
 import { TerrainControls, formatDensity } from "../GUI/terraincontrols.js";
 import { CapriCompanion } from "../GUI/capri.js";
 import { Timeline } from "../GUI/timeline.js";
+import { AreaMenu } from "../GUI/areamenu.js";
 
 const canvas=document.querySelector("#map"), panel=document.querySelector(".map-panel");
-const loading=document.querySelector("#loading"), explain=document.querySelector("#explain-area");
-let texture,renderer,navigation,interaction,selection,selectedPosition,timeline,terrainData,framePending=false;
+const loading=document.querySelector("#loading");
+let texture,renderer,navigation,interaction,selection,selectedPosition,timeline,terrainData,areaMenu,framePending=false;
 const controls=new TerrainControls({
-  onChange:()=>{timeline?.useSurface();interaction?.invalidate();if(selection)showArea(selection,selectedPosition);requestDraw();},
+  onChange:()=>{areaMenu?.reset();timeline?.useSurface();interaction?.invalidate();if(selection)showArea(selection,selectedPosition);requestDraw();},
   onZoom:factor=>navigation?.zoom(factor),
   onReset:()=>{renderer?.reset();navigation?.resize(true);},
   onMode:mode=>{if(!navigation)return;navigation.setMode(mode);controls.setMode(mode);},
 });
 const capri=new CapriCompanion(panel);
-explain.addEventListener("click",()=>{if(selection)capri.explainArea(selection.feature.properties);});
-document.addEventListener("capri:busy",event=>{explain.disabled=!selection || event.detail;});
 
 function requestDraw() {
   if(framePending)return;
@@ -35,10 +34,10 @@ function draw(now=performance.now()) {
 
 function showArea(area,position) {
   selection=area;selectedPosition=position;
+  areaMenu?.selected(area);
   const {authority_name:name,income_per_head:income,population_density:density,authority_code:code}=area.feature.properties;
   document.querySelector("#area-name").textContent=name;
   document.dispatchEvent(new CustomEvent("terrain:selection",{detail:{authorityCode:code,authorityName:name,year:timeline?.year}}));
-  explain.disabled=capri.busy;
   const stats=document.querySelector("#area-stats");
   // Height of the surface being shown: density terrain on DENSITY, income terrain otherwise.
   const onDensity=controls.density, measured=onDensity?density:income;
@@ -55,6 +54,7 @@ function showArea(area,position) {
 }
 
 function applyFrame(name,frame,series) {
+  areaMenu?.reset();
   const year=frame.year;
   const observationsBySurface=Object.fromEntries(Object.entries(timeline.data).map(([key,value])=>[key,value.frames.find(item=>item.year===year)?.observations]));
   for(const feature of terrainData.features) {
@@ -86,7 +86,7 @@ async function initialise() {
     });
     navigation=new MapNavigation({
       canvases:[canvas],panel,bounds:terrain.metadata.bounds,
-      onChange:()=>{interaction?.invalidate();requestDraw();},
+      onChange:()=>{areaMenu?.close();interaction?.invalidate();requestDraw();},
       onZoom:zoom=>controls.setZoom(zoom),onSelect:point=>interaction?.select(point),
       rotate:(dx,dy,reset=false)=>reset?renderer.reset():renderer.rotate(dx,dy),
       pan3D:(view,dx,dy)=>renderer.pan(view,dx,dy),
@@ -97,6 +97,10 @@ async function initialise() {
       onChange:requestDraw,onSelect:showArea,
       describe:({authority_name:name,population_density:density})=>
         name+(density===null?"":" · "+formatDensity(density)),
+    });
+    areaMenu=new AreaMenu({canvas,panel,capri,getYear:()=>timeline?.year,pause:()=>timeline?.pause(),
+      pick:point=>{const position=interaction.position(point,controls.surface),area=position&&areas.find(position);return area?{area,position}:null;},
+      select:(area,position)=>{interaction.selected=area;showArea(area,position);requestDraw();},
     });
     controls.setReady();controls.setLegend(texture.colourRange,texture.peakHeight);
     const density=terrain.metadata.population_density;

@@ -116,8 +116,8 @@ and [standard derivatives](https://developer.mozilla.org/en-US/docs/Web/API/OES_
 Earcut's source/license are under `render/vendor/`; no CDN or runtime network
 dependency is added.
 
-Drag/arrows pan; Shift-drag/right-drag or Shift-arrow rotates in 3D. Scroll/+/-,
-pinch and UK view/0 zoom/reset. Zoom stays 1–12×. 2D locks a fitted axis; the 3D
+Drag/arrows pan; Shift-drag or Shift-arrow rotates in 3D. Scroll/+/-,
+pinch and UK view/0 zoom/reset. Right-click an area for Capri explanations, local comparisons and future simulation actions. Ask Capri brings the orb over with a dismissible speech bubble; Explain this area opens chat and requests an explanation directly. The map's microphone switch enables “Hey Capri” voice questions with automatic sending after a pause. A sparse, dim sea grid provides a camera-aligned reference in 3D. Zoom stays 1–12×. 2D locks a fitted axis; the 3D
 camera target can move inside the UK bounds even at fit zoom. Neither view allows
 unbounded panning. Pixel density is capped at 2×.
 
