@@ -57,7 +57,7 @@ Capri's frontend is grouped in `src/frontend/GUI/capri/`: `capri.js` contains th
 Use **Data year** to drag, scroll or step through the available observations;
 **Play** advances one year at a time.
 During Play, each step blends the terrain heights, lighting, colours and contours
-over 650 ms within the 750 ms year interval. These intermediate shapes are visual
+over 550 ms within the 650 ms year interval. These intermediate shapes are visual
 interpolations, not extra observations. Manual year selection and Pause settle on
 the recorded frame immediately; reduced-motion mode keeps discrete steps.
 Income covers 1997–2024 and population density 1991–2025. Employment covers 2004–2023. Business failure is a fixed 2024 overlay and does not change with the year slider. The sea grid is visible in both 2D and 3D. History loads once in the background and is cached. Height/colour

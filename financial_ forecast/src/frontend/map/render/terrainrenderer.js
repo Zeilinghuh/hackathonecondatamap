@@ -246,7 +246,7 @@ export class TerrainRenderer {
     surface = this.surfaceOf(surface);
     let blend=1;
     if(this.transition) {
-      const t=Math.min(1,(performance.now()-this.transition.start)/650);
+      const t=Math.min(1,(performance.now()-this.transition.start)/550);
       blend=t*t*(3-2*t);this.transition.blend=blend;
       if(t===1)this.endTransition();
     }
