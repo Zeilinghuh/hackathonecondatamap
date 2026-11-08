@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import socket
 import subprocess
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -25,6 +27,16 @@ from terrain_service import PROJECT_ROOT, TerrainStore
 WEB_ROOT = PROJECT_ROOT / "src" / "frontend"
 TERRAIN = TerrainStore()
 CAPRI = CapriService(PROJECT_ROOT)
+
+
+class LocalHTTPServer(ThreadingHTTPServer):
+    """Windows SO_REUSEADDR can silently leave requests on an older server."""
+
+    def server_bind(self) -> None:
+        if os.name == "nt":
+            self.allow_reuse_address = False
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 
 class TerrainRequestHandler(SimpleHTTPRequestHandler):
@@ -170,7 +182,10 @@ def main() -> None:
         print(json.dumps(metadata, indent=2))
         return
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), TerrainRequestHandler)
+    try:
+        server = LocalHTTPServer(("127.0.0.1", args.port), TerrainRequestHandler)
+    except OSError:
+        parser.exit(1, f"Could not open port {args.port}. Stop the running map server first, or choose another --port.\n")
     print(f"Terrain map available at http://127.0.0.1:{args.port}")
     try:
         server.serve_forever()

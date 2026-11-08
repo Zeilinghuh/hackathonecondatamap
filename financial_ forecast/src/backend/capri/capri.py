@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-DEFAULT_MODEL = "accounts/fireworks/models/qwen3p7-plus"
+DEFAULT_MODEL = "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b"
 ENDPOINT = "https://api.fireworks.ai/inference/v1/chat/completions"
 PERSONA = """You are Capri, a playful, warm digital construct and companion for
 this UK economic terrain map. Speak with a little arcade/cyberpunk personality,

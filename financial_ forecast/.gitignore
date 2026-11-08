@@ -26,6 +26,9 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Excel's temporary workbook-owner files
+~$*.xlsx
+
 # Environment / secrets
 .env
 .env.*
