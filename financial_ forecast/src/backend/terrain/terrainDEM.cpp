@@ -11,7 +11,7 @@
 // RichDEM's terrain-attribute headers use this non-standard math constant.
 // Supply it here for strict C++17 builds on Windows without changing the vendor.
 #ifndef M_PI
-#define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846python "financial_ forecast/src/backend/server.py"
 #endif
 #include <richdem/common/Array2D.hpp>
 #include <richdem/methods/terrain_attributes.hpp>
@@ -55,7 +55,6 @@ void writeDEM(std::ostream& out, const GridSpec& spec, const std::vector<Sample>
         minimum = std::min(minimum, income);
         maximum = std::max(maximum, income);
     }
-    if (spec.valueRange) { minimum=(*spec.valueRange)[0]; maximum=(*spec.valueRange)[1]; }
     for (auto& p : points) p.value = maximum > minimum ? 1000 * (p.value - minimum) / (maximum - minimum) : 500;
     const double left = west * pi / 180, right = east * pi / 180;
     const double top = projectY(north), bottom = projectY(south);
@@ -72,11 +71,6 @@ void writeDEM(std::ostream& out, const GridSpec& spec, const std::vector<Sample>
         for (int col = 0; col < width; ++col)
             grid(col, row) = maximum == minimum ? 500 : interpolate(left + col * dx, top - row * dy, points);
 
-    if (spec.valuesOnly) {
-        out << std::setprecision(6) << '[';
-        for (richdem::Array2D<double>::i_t i=0;i<grid.size();++i) { if(i) out << ','; out << grid(i); }
-        out << ']'; return;
-    }
     // Run actual RichDEM analysis on the same grid used for the contour map.
     // This layer can feed subsequent terrain/weather modules without altering
     // the income surface (depression filling would change those heights).
