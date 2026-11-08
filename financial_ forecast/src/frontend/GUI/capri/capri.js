@@ -28,7 +28,7 @@ export class CapriCompanion {
       <section id="capri-chat" class="capri-chat" aria-label="Chat with Capri" hidden>
         <header class="capri-header"><div><strong>CAPRI // Support</strong><span id="capri-status" class="capri-status" role="status">Checking link…</span></div><button class="capri-close" aria-label="Close Capri chat">×</button></header>
         <div id="capri-messages" class="capri-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
-        <p id="capri-context" class="capri-context">Context: UK income terrain</p>
+        <p id="capri-context" class="capri-context">Context: UK household income</p>
         <form class="capri-form"><textarea id="capri-input" class="capri-input" aria-label="Message Capri" placeholder="Hey Capri…" rows="2" maxlength="2000" required></textarea><button class="capri-send" type="submit">SEND</button></form>
       </section>`);
     this.widget = mapPanel.querySelector("#capri-widget");
@@ -49,7 +49,7 @@ export class CapriCompanion {
     this.speech=mapPanel.querySelector(".capri-bubble");
     this.speech.querySelector(".bubble-close").addEventListener("click",()=>this.dismissBubble());
     this.speech.querySelector(".bubble-talk").addEventListener("click",()=>{const action=this.speechAction;this.dismissBubble();if(action)action();else this.setOpen(true);});
-    this.appendMessage("assistant", "Hey, I'm Capri. Pick an area and ask me about the terrain - or just say hi~");
+    this.appendMessage("assistant", "Hey, I'm Capri. Pick an area and ask me about income, population or employment - or just say hi~");
     this.button.addEventListener("click", () => {
       if (this.dragged) { this.dragged = false; return; }
       this.setOpen(!this.open);
@@ -128,7 +128,7 @@ export class CapriCompanion {
   }
 
   clampPosition() {
-    const width = this.open ? (this.compact?72:144) : 76, height = this.open ? (this.compact?86:173) : 84;
+    const width = this.open ? (this.compact?72:180) : 76, height = this.open ? (this.compact?86:216) : 84;
     if(this.flying && !this.dragging) {
       const hit=this.x<12 || this.x>this.mapPanel.clientWidth-width-12 || this.y<95 || this.y>this.mapPanel.clientHeight-height-12;
       if(hit)sfx.bounce(Math.hypot(this.vx,this.vy));
@@ -145,11 +145,11 @@ export class CapriCompanion {
     if (this.open) {
       const rect=this.chat.getBoundingClientRect(),parent=this.mapPanel.getBoundingClientRect();
       const left=rect.left-parent.left,right=rect.right-parent.left,top=rect.top-parent.top,bottom=rect.bottom-parent.top;
-      this.compact=false;this.x=right-144;
-      if(top>=189)this.y=top-181;
-      else if(bottom+193<=parent.height)this.y=bottom+8;
-      else if(left>=164){this.x=left-152;this.y=top;}
-      else if(right+164<=parent.width){this.x=right+8;this.y=top;}
+      this.compact=false;this.x=right-180;
+      if(top>=232)this.y=top-224;
+      else if(bottom+236<=parent.height)this.y=bottom+8;
+      else if(left>=200){this.x=left-188;this.y=top;}
+      else if(right+200<=parent.width){this.x=right+8;this.y=top;}
       else {this.compact=true;this.x=right-72;this.y=top>=102?top-94:bottom+8;}
       this.widget.classList.toggle("is-compact",this.compact);
     } else if (initial) {

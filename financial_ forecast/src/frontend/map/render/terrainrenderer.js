@@ -212,7 +212,7 @@ export class TerrainRenderer {
     gl.clearColor(11/255,16/255,24/255,1);
     gl.disable(gl.BLEND);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     const camera=this.camera(view,mode),matrix=camera.matrix;
-    if(mode==="3d")this.seaGrid.draw(matrix,camera.centre);
+    this.seaGrid.draw(matrix,camera.centre);
     gl.useProgram(this.program);
     this.bindMesh(surface || "income");
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);

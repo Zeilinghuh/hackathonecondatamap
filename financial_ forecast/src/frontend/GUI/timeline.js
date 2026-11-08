@@ -23,7 +23,7 @@ export class Timeline {
     if(this.queued){cancelAnimationFrame(this.queued);this.queued=null;}
     this.pause();this.active=null;const name=this.getSurface(),series=this.data?.[name];
     this.slider.disabled=this.play.disabled=!series;
-    if(!series?.frames.length){this.slider.disabled=this.play.disabled=true;document.querySelector("#year-note").textContent=this.loading?"Loading historical years…":"Choose GDP per capita, Density or Vegetation to explore years.";return;}
+    if(!series?.frames.length){this.slider.disabled=this.play.disabled=true;document.querySelector("#year-note").textContent=this.loading?"Loading historical years…":"Choose Income per head, Population density or Employment rate to explore years.";return;}
     this.slider.min=0;this.slider.max=series.frames.length-1;
     document.querySelector("#year-oldest").textContent=series.frames[0].year;
     document.querySelector("#year-newest").textContent=series.frames.at(-1).year;

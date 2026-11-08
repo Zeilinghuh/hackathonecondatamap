@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>UK economic terrain</title>
+    <title>CAPRICORN Financial Forecast</title>
     <link rel="stylesheet" href="/GUI/styles.css?v=compact-keys-3" />
     <link rel="stylesheet" href="/GUI/vegetation.css?v=black-key-1" />
   </head>
@@ -23,7 +23,7 @@
         <p class="map-hint">Scroll to zoom · Drag to explore</p>
         <p id="hover-label" class="hover-label" hidden></p>
         <p id="view-status" class="view-status" role="status" hidden></p>
-        <div id="loading" class="loading">Generating terrain from local-authority income and density data…</div>
+        <div id="loading" class="loading">Loading income, population density and employment data…</div>
         <div class="map-hud">
         <div class="legend-stack" role="region" aria-label="Map legends" tabindex="0">
         <div class="map-key" id="terrain-key" aria-label="Elevation colour scale">
@@ -32,7 +32,7 @@
           <span id="legend-high">Higher terrain</span>
         </div>
         <div class="map-key density-key compact-key" id="density-key" aria-label="Population density colour scale" hidden>
-          <span>Blue: sparse · Pink: dense</span>
+          <span>Population density · lower → higher</span>
           <ul id="density-classes" class="density-classes"></ul>
           <div class="legend-range visually-hidden"><span id="density-low"></span><span id="density-high"></span></div>
           <div class="legend-footer key-scale visually-hidden">
@@ -40,8 +40,8 @@
             <span><span id="density-missing" class="legend-missing" aria-hidden="true"></span>No data</span>
           </div>
         </div>
-        <div class="map-key vegetation-key compact-key" id="vegetation-key" aria-label="Employment vegetation legend" hidden>
-          <span>Darker = higher employment</span>
+        <div class="map-key vegetation-key compact-key" id="vegetation-key" aria-label="Employment rate legend" hidden>
+          <span>Employment rate · lower → higher</span>
           <div class="vegetation-ramp" role="img" aria-label="Employment rate, ages 16–64: light green below 65%, dark green 85% and above."></div>
           <div class="legend-range visually-hidden"><span>Below 65%</span><span>85%+</span></div>
           <div class="legend-footer key-scale visually-hidden">
@@ -49,18 +49,17 @@
             <span><span class="legend-missing" aria-hidden="true"></span>No data</span>
           </div>
         </div>
-        <div class="map-key mist-key compact-key" id="mist-key" aria-label="Business death rate mist scale" hidden>
-          <span>Denser = higher death rate</span>
+        <div class="map-key mist-key compact-key" id="mist-key" aria-label="Business failure rate scale" hidden>
+          <span>Business failure rate · lower → higher</span>
           <div class="mist-gradient"></div>
-          <span class="visually-hidden">Business deaths · 2024 · % of active businesses</span>
+          <span class="visually-hidden">Business closures · 2024 · % of active businesses</span>
         </div>
         </div>
         </div>
       </section>
       <aside id="sidebar" class="controls-panel">
-        <p class="eyebrow">UK // ECON TERRAIN</p>
-        <h1>FINANCIAL<br>FORECAST</h1>
-        <p class="intro">Income per head shapes the terrain; population density and employment offer other views. Toggle the business-death mist over the map, and explore recorded years to watch the data change.</p>
+        <h1>CAPRICORN<span class="app-subtitle">FINANCIAL FORECAST</span></h1>
+        <p class="intro">Explore UK household income, population density and employment rates. Choose a data layer, change the year, or add business failure rates. Heights and contours represent the selected metric, not geographic altitude.</p>
 
         <div class="view-switch" role="group" aria-label="Map view">
           <button id="view-2d" aria-pressed="true" disabled>2D MAP</button>
@@ -68,23 +67,23 @@
         </div>
 
         <div class="layer-row">
-          <span id="layer-label">Map layer</span>
+          <span id="layer-label">Data layer</span>
           <div class="layer-switch" role="group" aria-labelledby="layer-label">
-            <button data-layer="terrain" aria-pressed="true" title="Currently displays gross disposable household income per head">GDP per capita</button>
-            <button data-layer="density" aria-pressed="false">DENSITY</button>
-            <button data-layer="vegetation" aria-pressed="false">VEGETATION</button>
-            <button data-layer="borders" aria-pressed="false">BORDERS</button>
+            <button data-layer="terrain" aria-pressed="true" title="Currently displays gross disposable household income per head">Income per head</button>
+            <button data-layer="density" aria-pressed="false">Population density</button>
+            <button data-layer="vegetation" aria-pressed="false">Employment rate</button>
+            <button data-layer="borders" aria-pressed="false">Area boundaries</button>
           </div>
         </div>
 
         <div class="layer-row weather-row">
-          <span id="weather-label">Weather</span>
+          <span id="weather-label">Additional data</span>
           <div class="weather-switch" role="group" aria-labelledby="weather-label">
-            <button id="mist-toggle" type="button" aria-pressed="false">MIST</button>
+            <button id="mist-toggle" type="button" aria-pressed="false">Business failure</button>
           </div>
         </div>
 
-        <p id="control-note" class="control-note">Blue lows → cyan → green → yellow → red → dark crimson peaks.</p>
+        <p id="control-note" class="control-note">Household disposable income per head (£). Higher values create taller shapes; colours run from blue to dark red.</p>
         <p id="vegetation-summary" class="control-note vegetation-summary" hidden></p>
 
         <section class="timeline" aria-label="Historical data">
@@ -97,14 +96,13 @@
           <p class="details-label">Select an area</p>
           <h2 id="area-name">Explore the map</h2>
           <dl id="area-stats">
-            <div><dt>Elevation</dt><dd>—</dd></div>
+            <div><dt>Display height</dt><dd>—</dd></div>
             <div><dt>Income per head</dt><dd>—</dd></div>
             <div><dt>Population density</dt><dd>—</dd></div>
           </dl>
         </section>
 
         <p id="source-note" class="source-note"></p>
-        <div class="panel-footer"><span class="status-pixel"></span> CAPRI LINK / READY</div>
       </aside>
     </main>
     <script type="module" src="/map/app.js?v=density-blue-pink-3"></script>

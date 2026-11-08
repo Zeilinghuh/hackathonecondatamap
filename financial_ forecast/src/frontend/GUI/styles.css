@@ -74,8 +74,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .compact-key .density-classes, .compact-key .vegetation-ramp, .compact-key .mist-gradient { height: 8px; }
 .gradient { height: 10px; border: 1px solid #75849a; }
 .controls-panel { position: relative; width: 320px; min-width: 0; padding: 34px 25px 24px; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; }
-.eyebrow { margin: 0 0 22px; color: var(--cyan); font-family: Arcade, monospace; font-size: 8px; line-height: 1.8; }
-h1 { margin: 0; color: var(--pink); font-family: Arcade, monospace; font-size: 18px; line-height: 1.65; }
+h1 { margin: 0; color: var(--text); font-family: Arcade, monospace; font-size: 24px; line-height: 1.65; }
+.app-subtitle { display: block; margin-top: 8px; color: var(--pink); font-size: 12px; }
 .intro { color: #b0bfd1; line-height: 1.7; font-size: 13px; margin: 22px 0 27px; }
 .layer-row { display: grid; gap: 12px; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 13px; font-weight: bold; }
 .layer-switch, .weather-switch { display: flex; gap: 4px; }
@@ -114,12 +114,10 @@ dl { margin: 18px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
 dt { color: var(--muted); font-size: 10px; line-height: 1.5; }
 dd { margin: 5px 0 0; color: var(--cyan); font-size: 13px; font-weight: bold; }
 .source-note { margin-top: 24px; color: var(--muted); font-size: 11px; line-height: 1.7; }
-.panel-footer { margin-top: 35px; padding-top: 18px; border-top: 1px solid var(--line); color: #8296af; font-size: 9px; letter-spacing: .08em; }
-.status-pixel { display: inline-block; width: 5px; height: 5px; margin-right: 6px; background: var(--cyan); }
 
 /* Capri stays in the map layer and never captures navigation outside her UI. */
 .capri-widget { position: absolute; z-index: 6; left: 0; top: 0; width: 76px; height: 84px; will-change: transform; }
-.capri-widget.is-open { z-index: 10; width: 144px; height: 173px; pointer-events: none; }
+.capri-widget.is-open { z-index: 10; width: 180px; height: 216px; pointer-events: none; }
 .capri-button { display: grid; justify-items: center; align-items: start; width: 100%; padding: 0; border: 0; background: transparent; color: #ffa1ae; touch-action: none; cursor: grab; }
 .capri-button:active { cursor: grabbing; }
 .capri-name { font-family: Arcade, monospace; font-size: 7px; margin-top: 7px; letter-spacing: .1em; text-shadow: 1px 1px #000; }
@@ -130,7 +128,7 @@ dd { margin: 5px 0 0; color: var(--cyan); font-size: 13px; font-weight: bold; }
   background-position: 0 0; image-rendering: pixelated;
   filter: drop-shadow(0 0 7px #f7193f50);
 }
-.is-open .capri-sprite { width: 144px; height: 173px; background-size: 400% 166.6667%; background-position-y: 100%; }
+.is-open .capri-sprite { width: 180px; height: 216px; image-rendering: auto; filter: brightness(1.12) saturate(1.08) drop-shadow(0 0 8px #ff315b55); background-size: 400% 166.6667%; background-position-y: 100%; }
 .is-open .capri-name { display: none; }
 .capri-widget.is-open.is-compact { width: 72px; height: 86px; }
 .is-open.is-compact .capri-sprite { width: 72px; height: 86px; }

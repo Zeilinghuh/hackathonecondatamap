@@ -1,14 +1,14 @@
-# Financial Forecast
+# CAPRICORN — Financial Forecast
 
 A UK income landscape with 2D contours, a 3D view, a population density layer
 and Capri as a chat companion. Heights describe gross disposable household
 income, not physical altitude.
 
-The **VEGETATION** layer shades employment rates from pale to dark green, with
+The **Employment rate** layer displays employment rates as contoured hills from pale to dark green, with
 small CSS trees only in the highest band (85%+). Use **Data year** or **Play** to explore 2004–2023,
 then select an authority to see its rate and annual change in percentage points.
 The figures come from ONS/NISRA employment observations for ages 16–64; the
-vegetation is an economic metaphor. Northern Ireland is available for 2023 only.
+height and tree markers are visual representations of employment. Northern Ireland is available for 2023 only.
 
 ## Run
 
@@ -32,9 +32,11 @@ uses WebGL for both map views. The first request compiles native code if needed;
 subsequent starts reuse generated terrain.
 
 Drag/arrow keys pan. In 3D, Shift-drag or Shift-arrow rotates. Right-click an area for Capri actions and comparisons.
-Scroll/+/- zoom; two fingers pan/pinch; UK view/0 resets. **Map layer** picks
-TERRAIN (income heights), DENSITY (a second terrain from log₁₀ ONS residents
-per km², with its own contours, in 2D and 3D) or BORDERS. On BORDERS,
+Scroll/+/- zoom; two fingers pan/pinch; UK view/0 resets. **Data layer** picks **Income per head** (gross disposable household income, £),
+**Population density** (residents per km² on a log height scale), **Employment rate**
+(ages 16–64, %) or **Area boundaries**. All data surfaces have contours and a 3D view.
+**Business failure** adds the fixed 2024 business-closure rate (% of active businesses,
+ONS business deaths) as a density overlay. On Area boundaries,
 hover an authority for a cyan glow. Right-click an area and choose **Explain this area** to submit a question to Capri; hovering does not call AI.
 
 For reliable local voice, run once from the repository root:
@@ -54,7 +56,7 @@ Capri's frontend is grouped in `src/frontend/GUI/capri/`: `capri.js` contains th
 
 Use **Data year** to drag, scroll or step through the available observations;
 **Play** advances one year at a time. Income covers 1997–2024 and density
-1991–2025. History loads once in the background and is cached. Height/colour
+1991–2025. Employment covers 2004–2023. Business failure is a fixed 2024 overlay and does not change with the year slider. The sea grid is visible in both 2D and 3D. History loads once in the background and is cached. Height/colour
 scales stay fixed across years. Missing values remain unshaded; income is
 nominal (not inflation-adjusted) and all years use the current map boundaries.
 

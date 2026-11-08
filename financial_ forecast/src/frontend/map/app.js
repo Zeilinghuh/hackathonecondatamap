@@ -46,14 +46,14 @@ function showArea(area,position) {
   const onDensity=controls.density, measured=onDensity?density:income;
   const height=measured===null?null:texture.elevationAt(...position,onDensity?texture.densityDem:texture.dem);
   const rows=[
-    [onDensity?"Density height":"Synthetic height",height===null?"Not available":Math.round(height).toLocaleString()+" units"],
-    ["Income per head",income===null?"No matching value":"Â£"+Math.round(income).toLocaleString()],
+    [onDensity?"Population density display height":"Income display height",height===null?"Not available":Math.round(height).toLocaleString()+" units"],
+    ["Income per head",income===null?"No matching value":"£"+Math.round(income).toLocaleString()],
     ["Population density",density===null?"No matching value":formatDensity(density)],
-    ["Business death rate (2024)",Number.isFinite(deathRate)?deathRate.toFixed(1)+"%":"No matching value"],
+    ["Business failure rate (2024)",Number.isFinite(deathRate)?deathRate.toFixed(1)+"%":"No matching value"],
   ];
   if(controls.vegetation) {
     const {employment_rate:rate,employment_change_pp:change}=area.feature.properties;
-    rows.splice(0,rows.length,["Employment Â· "+employmentYear,Number.isFinite(rate)?rate.toFixed(1)+"%":"No data for this year"],
+    rows.splice(0,rows.length,["Employment · "+employmentYear,Number.isFinite(rate)?rate.toFixed(1)+"%":"No data for this year"],
       ["Annual change",Number.isFinite(change)?(change>0?"+":"")+change.toFixed(1)+" percentage points":"Previous year unavailable"]);
   }
   stats.replaceChildren(...rows.map(([label,value])=>{
@@ -75,8 +75,8 @@ function applyEmploymentFrame(frame,series) {
   renderer.setVegetation(frame.observations,vegetation.palette,vegetation.missingColour);
   controls.setEmploymentSource(frame.year);
   capri.selectedYear=frame.year;
-  document.querySelector("#source-note").textContent="Employment rate, ages 16â€“64, "+frame.year+
-    ". ONS (Great Britain) / NISRA (Northern Ireland). Missing or suppressed values stay unavailable. Vegetation is a visual metaphor.";
+  document.querySelector("#source-note").textContent="Employment rate, ages 16–64, "+frame.year+
+    ". ONS (Great Britain) / NISRA (Northern Ireland). Missing or suppressed values stay unavailable. Heights and green shading represent employment rate; trees mark 85% or above.";
 }
 
 function applyFrame(name,frame,series) {
@@ -99,7 +99,7 @@ function applyFrame(name,frame,series) {
   controls.setLegend(texture.colourRange,texture.peakHeight);
   if(name==="density")controls.setDensitySource({...terrainData.metadata.population_density,source_year:year,log10_range:series.range});
   capri.selectedYear=year;
-  document.querySelector("#source-note").textContent=(name==="income"?"Income per head":"Population density")+", "+year+" Â· "+Object.keys(frame.observations).length+" authorities matched. Current boundaries; missing data stays unshaded.";
+  document.querySelector("#source-note").textContent=(name==="income"?"Income per head":"Population density")+", "+year+" · "+Object.keys(frame.observations).length+" authorities matched. Current boundaries; missing data stays unshaded.";
   if(selection)showArea(selection,selectedPosition);
   interaction.invalidate();requestDraw();
 }
@@ -132,7 +132,7 @@ async function initialise() {
       controls.setEmploymentSource(latest.year);
     }
     renderer=new TerrainRenderer(canvas,{income:terrain.dem,density:terrain.density_dem},texture,areas,{
-      onUnavailable:()=>{loading.textContent="Restoring map graphicsâ€¦";loading.classList.remove("hidden");},
+      onUnavailable:()=>{loading.textContent="Restoring map graphics…";loading.classList.remove("hidden");},
       onRestore:()=>{loading.classList.add("hidden");requestDraw();},
     });
     if(employment?.frames.length)renderer.setVegetation(employment.frames.at(-1).observations,vegetation.palette,vegetation.missingColour);
@@ -149,8 +149,8 @@ async function initialise() {
       onChange:requestDraw,onSelect:(area,position)=>{sfx.play("click",{gain:.25});showArea(area,position);},
       describe:({authority_name:name,population_density:density,employment_rate:employment,business_death_rate_percent:deathRate})=>
         name+(controls.vegetation
-          ?" Â· "+(Number.isFinite(employment)?employment.toFixed(1)+"% employed":"No employment data")
-          :(density===null?"":" Â· "+formatDensity(density))+(Number.isFinite(deathRate)?" Â· "+deathRate.toFixed(1)+"% deaths":"")),
+          ?" · "+(Number.isFinite(employment)?employment.toFixed(1)+"% employed":"No employment data")
+          :(density===null?"":" · "+formatDensity(density))+(Number.isFinite(deathRate)?" · "+deathRate.toFixed(1)+"% business closures":"")),
     });
     areaMenu=new AreaMenu({canvas,panel,capri,getYear:()=>timeline?.year,pause:()=>timeline?.pause(),
       pick:point=>{const position=interaction.position(point,controls.surface),area=position&&areas.find(position);return area?{area,position}:null;},
@@ -162,7 +162,7 @@ async function initialise() {
     document.querySelector("#source-note").textContent=terrain.metadata.metric+", "+terrain.metadata.source_year+". "+
       terrain.metadata.matched_authorities+" of "+terrain.features.length+" planning authorities matched; special authorities remain unshaded."+
       (density?" Population density (ONS, mid-"+density.source_year+"): "+density.matched_authorities+" matched.":"")
-      +" Business deaths (ONS, "+deaths.source_year+"): "+matchedDeathRates+" authorities matched.";
+      +" Business closures (ONS, "+deaths.source_year+"): "+matchedDeathRates+" authorities matched.";
     draw();loading.classList.add("hidden");
     timeline=new Timeline(()=>controls.timelineSurface,applyFrame,employment?{employment}:{});
   } catch(error){loading.textContent="Could not load the map: "+error.message;}
