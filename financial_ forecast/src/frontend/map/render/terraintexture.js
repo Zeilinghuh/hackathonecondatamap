@@ -50,6 +50,36 @@ export class TerrainTexture {
     this.densityImage = this.densityDem && this.densityRange
       ? this.rasterise(this.densityDem, value => this.densityPalette[this.densityBandAt(value)]) : null;
     this.buildSurfaces(areas);
+    this.mist = this.buildMist(areas);
+  }
+
+  buildMist(areas) {
+    const values = areas.areas
+      .map(area => area.feature.properties.business_death_rate_percent)
+      .filter(Number.isFinite);
+    const low = Math.min(...values), high = Math.max(...values);
+    const sharp = document.createElement("canvas");
+    sharp.width = this.base.width; sharp.height = this.base.height;
+    const context = sharp.getContext("2d");
+    const [west, south, east, north] = this.dem.bounds;
+    const top = mercator(north), span = top - mercator(south), scale = 3072 / span;
+    context.setTransform(scale, 0, 0, scale, -west * scale, top * scale);
+    for (const area of areas.areas) {
+      const rate = area.feature.properties.business_death_rate_percent;
+      if (!Number.isFinite(rate)) continue;
+      const intensity = high === low ? .65 : .18 + .74 * (rate - low) / (high - low);
+      context.fillStyle = `rgba(197,226,241,${intensity})`;
+      context.fill(area.path, "evenodd");
+    }
+    const mist = document.createElement("canvas");
+    mist.width = sharp.width; mist.height = sharp.height;
+    const soft = mist.getContext("2d");
+    soft.filter = "blur(14px)";
+    soft.drawImage(sharp, 0, 0);
+    soft.filter = "none";
+    soft.globalAlpha = .42;
+    soft.drawImage(sharp, 0, 0);
+    return mist;
   }
 
   landMask(features) {

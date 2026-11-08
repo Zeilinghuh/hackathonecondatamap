@@ -31,10 +31,11 @@ function draw(now=performance.now()) {
   renderer.draw(navigation.view,controls.surface,navigation.mode,highlights);
   if(interaction?.animating && !document.hidden)requestDraw();
 }
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)requestDraw();});
 
 function showArea(area,position) {
   selection=area;selectedPosition=position;
-  const {authority_name:name,income_per_head:income,population_density:density,authority_code:code}=area.feature.properties;
+  const {authority_name:name,income_per_head:income,population_density:density,authority_code:code,business_death_rate_percent:deathRate}=area.feature.properties;
   document.querySelector("#area-name").textContent=name;
   document.dispatchEvent(new CustomEvent("terrain:selection",{detail:{authorityCode:code,authorityName:name}}));
   explain.disabled=capri.busy;
@@ -46,6 +47,7 @@ function showArea(area,position) {
     [onDensity?"Density height":"Synthetic height",height===null?"Not available":Math.round(height).toLocaleString()+" units"],
     ["Income per head",income===null?"No matching value":"£"+Math.round(income).toLocaleString()],
     ["Population density",density===null?"No matching value":formatDensity(density)],
+    ["Business death rate (2024)",Number.isFinite(deathRate)?deathRate.toFixed(1)+"%":"No matching value"],
   ];
   stats.replaceChildren(...rows.map(([label,value])=>{
     const row=document.createElement("div"),term=document.createElement("dt"),detail=document.createElement("dd");
@@ -55,9 +57,21 @@ function showArea(area,position) {
 
 async function initialise() {
   try {
-    const response=await fetch("/api/terrain");
+    const [response,deathsResponse]=await Promise.all([fetch("/api/terrain"),fetch("/api/business-deaths")]);
     if(!response.ok)throw new Error("Terrain API returned "+response.status);
-    const terrain=await response.json(), areas=new AreaIndex(terrain.features);
+    if(!deathsResponse.ok) {
+      const failure=await deathsResponse.json().catch(()=>({}));
+      throw new Error(failure.error || "Business deaths API returned "+deathsResponse.status);
+    }
+    const [terrain,deaths]=await Promise.all([response.json(),deathsResponse.json()]);
+    const normalise=name=>name.toLowerCase().replace(/lpa|cityof/g,"").replace(/[^a-z0-9]/g,"");
+    const rates=new Map(deaths.areas.map(area=>[normalise(area.area_name),area.rate_percent]));
+    let matchedDeathRates=0;
+    for(const feature of terrain.features) {
+      feature.properties.business_death_rate_percent=rates.get(normalise(feature.properties.authority_name)) ?? null;
+      if(Number.isFinite(feature.properties.business_death_rate_percent))matchedDeathRates++;
+    }
+    const areas=new AreaIndex(terrain.features);
     texture=new TerrainTexture(terrain,areas);
     renderer=new TerrainRenderer(canvas,{income:terrain.dem,density:terrain.density_dem},texture,areas,{
       onUnavailable:()=>{loading.textContent="Restoring map graphics…";loading.classList.remove("hidden");},
@@ -74,15 +88,16 @@ async function initialise() {
       canvas,index:areas,renderer,getView:()=>navigation.view,getMode:()=>navigation.mode,
       getSurface:()=>controls.surface,isDragging:()=>navigation.pointers.size>0,
       onChange:requestDraw,onSelect:showArea,
-      describe:({authority_name:name,population_density:density})=>
-        name+(density===null?"":" · "+formatDensity(density)),
+      describe:({authority_name:name,population_density:density,business_death_rate_percent:rate})=>
+        name+(density===null?"":" · "+formatDensity(density))+(Number.isFinite(rate)?" · "+rate.toFixed(1)+"% deaths":""),
     });
     controls.setReady();controls.setLegend(texture.colourRange,texture.peakHeight);
     const density=terrain.metadata.population_density;
     controls.setDensitySource(density);
     document.querySelector("#source-note").textContent=terrain.metadata.metric+", "+terrain.metadata.source_year+". "+
       terrain.metadata.matched_authorities+" of "+terrain.features.length+" planning authorities matched; special authorities remain unshaded."+
-      (density?" Population density (ONS, mid-"+density.source_year+"): "+density.matched_authorities+" matched.":"");
+      (density?" Population density (ONS, mid-"+density.source_year+"): "+density.matched_authorities+" matched.":"")
+      +" Business deaths (ONS, "+deaths.source_year+"): "+matchedDeathRates+" authorities matched.";
     draw();loading.classList.add("hidden");
   } catch(error){loading.textContent="Could not load the map: "+error.message;}
 }

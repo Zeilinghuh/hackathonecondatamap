@@ -4,6 +4,7 @@ const NOTES = {
   terrain: "Blue lows → cyan → green → yellow → red → dark crimson peaks.",
   density: "Population density terrain: height follows log₁₀ residents per km². Bright blue lows are sparse, black peaks are crowded; contours are white.",
   borders: "Authority borders only. Hover an area, then click to select it.",
+  mist: "Business-death mist: denser wisps indicate a higher share of active businesses that ceased trading in 2024.",
 };
 export const formatDensity = value => Math.round(value).toLocaleString() + " / km²";
 
@@ -49,7 +50,7 @@ export class TerrainControls {
   }
 
   // Raised, contoured surface for the layer: "income", "density" or null (flat borders + hover).
-  get surface() { return {terrain: "income", density: "density"}[this.layer] ?? null; }
+  get surface() { return {terrain: "income", density: "density", mist: "mist"}[this.layer] ?? null; }
   get visible() { return this.surface !== null; }
   get density() { return this.layer === "density"; }
 
@@ -59,6 +60,7 @@ export class TerrainControls {
     document.querySelector("#control-note").textContent = NOTES[layer];
     document.querySelector("#terrain-key").hidden = layer !== "terrain";
     document.querySelector("#density-key").hidden = layer !== "density";
+    document.querySelector("#mist-key").hidden = layer !== "mist";
   }
 
   buildDensityLegend() {
