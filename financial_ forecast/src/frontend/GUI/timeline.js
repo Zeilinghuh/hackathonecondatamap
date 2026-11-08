@@ -1,6 +1,7 @@
 // Download/cache history once; slider changes reuse local observations/grids.
 export class Timeline {
-  constructor(getSurface,onFrame,extraData={}) {
+  constructor(getSurface,onFrame,extraData={},onPause=()=>{}) {
+    this.onPause=onPause;
     this.getSurface=getSurface;this.onFrame=onFrame;this.positions={};
     this.slider=document.querySelector("#year-slider");this.play=document.querySelector("#year-play");
     this.data=extraData;this.loading=true;
@@ -30,7 +31,7 @@ export class Timeline {
     document.querySelector("#year-note").textContent=name==="income"?"Recorded income · not inflation-adjusted · fixed boundaries":name==="employment"?"ONS / NISRA · ages 16–64 · Northern Ireland available for 2023 only.":"Residents per km² · fixed boundaries";
     this.show(this.positions[name]??series.frames.length-1);
   }
-  show(index) {
+  show(index,animate=false) {
     const name=this.getSurface(),series=this.data?.[name];if(!series)return;
     index=Math.max(0,Math.min(series.frames.length-1,index));
     if(this.active===name+":"+index)return;
@@ -38,12 +39,12 @@ export class Timeline {
     this.positions[name]=index;this.slider.value=index;
     const frame=series.frames[index];this.year=frame.year;
     document.querySelector("#year-label").textContent=frame.year;this.slider.setAttribute("aria-valuetext",frame.year);
-    this.onFrame(name,frame,series);
+    this.onFrame(name,frame,series,animate && !matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
   queue(index) {this.pending=index;if(this.queued)return;this.queued=requestAnimationFrame(()=>{this.queued=null;this.show(this.pending);});}
   run() {
     this.play.textContent="Pause";this.play.setAttribute("aria-pressed","true");
-    this.timer=setTimeout(()=>{if(Number(this.slider.value)>=Number(this.slider.max)){this.pause();return;}this.show(Number(this.slider.value)+1);this.run();},750);
+    this.timer=setTimeout(()=>{if(Number(this.slider.value)>=Number(this.slider.max)){this.pause();return;}this.show(Number(this.slider.value)+1,true);this.run();},750);
   }
-  pause() {clearTimeout(this.timer);this.timer=null;this.play.textContent="Play";this.play.setAttribute("aria-pressed","false");}
+  pause() {clearTimeout(this.timer);this.timer=null;this.onPause();this.play.textContent="Play";this.play.setAttribute("aria-pressed","false");}
 }

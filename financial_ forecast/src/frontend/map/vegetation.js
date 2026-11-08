@@ -145,12 +145,13 @@ export class VegetationLayer {
     this.cameraKey = null;
   }
 
-  draw(view, matrix, visible, heightAt=null) {
+  draw(view, matrix, visible, heightAt=null,blend=1) {
     this.element.hidden = !visible;
     if (!visible) return;
-    const key = [view.width, view.height, view.zoom, ...matrix].join(",");
+    const key = [view.width, view.height, view.zoom, ...matrix, blend].join(",");
     if (key === this.cameraKey) return;
     this.cameraKey = key;
+    this.element.style.opacity=String(.2+.8*blend);
     const size = Math.min(.85, .48 + Math.log2(Math.max(1, view.zoom)) * .08);
     const displayed = [], limit = view.width < 600 ? 16 : 28;
     for (let i = 0; i < this.activeSites.length; i++) {

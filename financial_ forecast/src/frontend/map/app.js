@@ -30,8 +30,8 @@ function draw(now=performance.now()) {
   if(!navigation?.view || !renderer || renderer.gl.isContextLost())return;
   const highlights=interaction?.highlights(now) || [];
   renderer.draw(navigation.view,controls.surface,navigation.mode,highlights,controls.mistEnabled,controls.vegetation);
-  vegetation?.draw(navigation.view,renderer.camera(navigation.view,navigation.mode).matrix,controls.vegetation,controls.vegetation && navigation.mode==="3d"?site=>renderer.vegetationHeight(site.x,site.z):null);
-  if(interaction?.animating && !document.hidden)requestDraw();
+  vegetation?.draw(navigation.view,renderer.camera(navigation.view,navigation.mode).matrix,controls.vegetation,controls.vegetation && navigation.mode==="3d"?site=>renderer.vegetationHeight(site.x,site.z):null,renderer.transition?.name==="employment"?renderer.transition.blend:1);
+  if((interaction?.animating || renderer.transition) && !document.hidden)requestDraw();
 }
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)requestDraw();});
 
@@ -79,7 +79,9 @@ function applyEmploymentFrame(frame,series) {
     ". ONS (Great Britain) / NISRA (Northern Ireland). Missing or suppressed values stay unavailable. Heights and green shading represent employment rate; trees mark 85% or above.";
 }
 
-function applyFrame(name,frame,series) {
+function applyFrame(name,frame,series,animate=false) {
+  if(animate)renderer.beginTransition(name);
+  else renderer.endTransition();
   areaMenu?.reset();
   if(name==="employment") {
     applyEmploymentFrame(frame,series);
@@ -164,7 +166,7 @@ async function initialise() {
       (density?" Population density (ONS, mid-"+density.source_year+"): "+density.matched_authorities+" matched.":"")
       +" Business closures (ONS, "+deaths.source_year+"): "+matchedDeathRates+" authorities matched.";
     draw();loading.classList.add("hidden");
-    timeline=new Timeline(()=>controls.timelineSurface,applyFrame,employment?{employment}:{});
+    timeline=new Timeline(()=>controls.timelineSurface,applyFrame,employment?{employment}:{},()=>{renderer.endTransition();requestDraw();});
   } catch(error){loading.textContent="Could not load the map: "+error.message;}
 }
 initialise();
