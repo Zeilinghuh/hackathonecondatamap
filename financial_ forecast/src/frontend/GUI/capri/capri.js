@@ -455,7 +455,7 @@ class OrbPlay {
 export class AreaMenu {
   constructor({canvas,panel,capri,pick,select,getYear,pause}) {
     Object.assign(this,{canvas,panel,capri,pick,select,getYear,pause});
-    panel.insertAdjacentHTML("beforeend",`<section class="area-menu" aria-label="Area actions" hidden><strong></strong><div role="menu"><button role="menuitem" data-action="ask">Ask Capri</button><button role="menuitem" data-action="explain">Explain this area</button><button role="menuitem" data-action="compare">Compare with another area</button><button role="menuitem" disabled>Spawn 100 clouds · Coming later</button></div></section>`);
+    panel.insertAdjacentHTML("beforeend",`<section class="area-menu" aria-label="Area actions" hidden><strong></strong><div role="menu"><button role="menuitem" data-action="ask">Ask Capri</button><button role="menuitem" data-action="explain">Explain this area</button><button role="menuitem" data-action="compare">Compare with another area</button></div></section>`);
     this.element=panel.querySelector(".area-menu");
     canvas.addEventListener("contextmenu",event=>{event.preventDefault();const r=canvas.getBoundingClientRect();this.open({x:event.clientX-r.left,y:event.clientY-r.top});});
     canvas.addEventListener("keydown",event=>{if(event.key==="ContextMenu" || (event.shiftKey && event.key==="F10")){event.preventDefault();this.open({x:canvas.clientWidth/2,y:canvas.clientHeight/2});}});

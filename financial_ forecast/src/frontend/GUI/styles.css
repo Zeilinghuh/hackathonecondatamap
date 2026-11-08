@@ -237,3 +237,6 @@ input[type="range"]::-webkit-slider-thumb { appearance:none; -webkit-appearance:
 input[type="range"]::-moz-range-thumb { width:9px; height:13px; border:2px solid var(--slider-colour); border-radius:0; background:var(--panel); box-shadow:2px 2px 0 #0008,inset 0 0 0 2px var(--panel),inset 0 0 0 4px var(--slider-colour); }
 input[type="range"]:focus-visible { outline:1px dashed var(--slider-colour); outline-offset:3px; }
 input[type="range"]:disabled { opacity:.35; cursor:default; }
+
+.map-location { position:absolute; left:0; top:0; z-index:4; pointer-events:none; color:var(--pink); font:8px/1.6 Arcade,monospace; text-indent:14px; white-space:nowrap; text-shadow:1px 1px 2px var(--sea),-1px -1px 2px var(--sea); }
+.map-location::before { content:''; position:absolute; left:-6px; top:-6px; width:12px; height:12px; border:2px solid var(--pink); border-radius:50%; background:var(--sea); box-shadow:0 0 0 4px #f38bb72a; }

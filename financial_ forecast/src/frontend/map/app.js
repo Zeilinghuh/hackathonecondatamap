@@ -34,7 +34,7 @@ function draw(now=performance.now()) {
   const highlights=interaction?.highlights(now) || [];
   renderer.draw(navigation.view,controls.surface,navigation.mode,highlights,controls.mistEnabled,controls.vegetation);
   vegetation?.draw(navigation.view,renderer.camera(navigation.view,navigation.mode).matrix,controls.vegetation,controls.vegetation && navigation.mode==="3d"?site=>renderer.vegetationHeight(site.x,site.z):null,renderer.transition?.name==="employment"?renderer.transition.blend:1);
-  forecast?.redraw();
+  forecast?.redraw();actions?.drawLocation();
   if((interaction?.animating || renderer.transition) && !document.hidden)requestDraw();
 }
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)requestDraw();});

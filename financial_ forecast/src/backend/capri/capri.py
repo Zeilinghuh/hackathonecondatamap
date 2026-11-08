@@ -10,6 +10,7 @@ import shlex
 import threading
 import time
 import uuid
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -64,6 +65,21 @@ predictions. Extreme shocks can hit model floors/caps. Search is bounded, not
 proof of a global optimum. FDI edits affect its entire model region. Summary
 means are unweighted authority means, not population-weighted national income.
 
+Live context includes current_time (fresh server UTC and browser-local time),
+browser timezone, and the current map camera coordinates. Use this for clock/date
+questions; do not use training-time guesses. Map coordinates describe the viewed
+map, not the physical device. show_map_position places a visible marker at the
+current map centre. locate_user requests the browser's location permission,
+then places an approximate device-location marker and focuses it if within UK
+coverage. Only request physical location when the user asks to locate them;
+never infer physical location from the camera, timezone or selected authority.
+If permission is refused, respect that and explain the result. Accuracy and
+observation timestamp are supplied; say approximate, not exact GPS. Device
+positions outside UK map coverage can be described but cannot be shown on this
+bounded UK map. Do not claim general web browsing or live news access.
+Answer clock/location questions concisely; do not volunteer unrelated economic
+statistics. Describe the actual location/camera result and its accuracy.
+
 Keep final explanations brief and specific unless asked for detail. Say which
 metric/scope you used, actual changes and meaningful limits. No repetitive
 catchphrases or roleplay directions. General conversation needs no tool call.
@@ -74,6 +90,8 @@ controls are available; do not claim unsupported operations.
 
 ACTION_TYPES = [
     "select_area",
+    "locate_user",
+    "show_map_position",
     "focus_region",
     "set_year",
     "set_layer",
@@ -313,9 +331,34 @@ class CapriService:
                         "focused_region",
                         "simulation_inputs",
                         "camera",
+                        "browser_context",
+                        "device_location",
+                        "position_pin",
                     }
                 },
             }
+        clock = state.get("browser_context", {}) if isinstance(state, dict) else {}
+        clock = clock if isinstance(clock, dict) else {}
+        offset = clock.get("utc_offset_minutes", 0)
+        if (
+            isinstance(offset, bool)
+            or not isinstance(offset, int)
+            or not -840 <= offset <= 840
+        ):
+            offset = 0
+        now = datetime.now(UTC)
+        zone = clock.get("time_zone", "UTC")
+        map_context = {
+            **map_context,
+            "current_time": {
+                "utc": now.isoformat(),
+                "browser_local": now.astimezone(
+                    timezone(timedelta(minutes=offset))
+                ).isoformat(),
+                "browser_time_zone": zone[:80] if isinstance(zone, str) else "UTC",
+                "source": "live server clock, local offset reported by browser",
+            },
+        }
         key, model = self._settings()
         if not key:
             raise CapriError(

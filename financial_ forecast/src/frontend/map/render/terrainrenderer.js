@@ -217,10 +217,12 @@ export class TerrainRenderer {
 
   surfaceOf(surface) { return surface && this.meshes[surface] ? surface : null; }
 
-  project(lon,lat,view,mode,surface) {
+  project(lon,lat,view,mode,surface,displayed=false) {
     const matrix=this.camera(view,mode).matrix,dem={income:this.textureSource.dem,density:this.textureSource.densityDem,employment:this.textureSource.employmentDem}[surface];
     const x=lon,z=Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))*180/Math.PI;
-    const y=mode==='3d'&&dem?(this.textureSource.elevationAt(lon,lat,dem)??0)*(surface==='income'?HEIGHT_SCALE:DENSITY_HEIGHT_SCALE):0;
+    let height=dem?this.textureSource.elevationAt(lon,lat,dem)??0:0;
+    if(displayed&&this.transition?.name===surface){const old=this.textureSource.elevationAt(lon,lat,this.transition.dem)??0;height=old+(height-old)*this.transition.blend;}
+    const y=mode==='3d'?height*(surface==='income'?HEIGHT_SCALE:DENSITY_HEIGHT_SCALE):0;
     const a=matrix[0]*x+matrix[4]*y+matrix[8]*z+matrix[12],b=matrix[1]*x+matrix[5]*y+matrix[9]*z+matrix[13];
     return {x:(a+1)*view.width/2,y:(1-b)*view.height/2,height:y};
   }

@@ -93,3 +93,24 @@ There are no keyword-triggered scenarios. `focus_region` frames a region or UK;
 a low-value borough with a whole-country objective. Scenario and model limitations
 remain explicit, and statements use post-execution facts. Qualitative goals are
 interpreted by the model, which explains assumptions or asks when ambiguous.
+
+## Live time and position
+
+Each request includes fresh server UTC and local time calculated from the
+browser's current timezone offset. Capri can answer time/date questions without
+relying on training data. Browser timezone is a setting, not evidence of physical
+location. The camera target supplies current map coordinates.
+
+`show_map_position` pins the current viewed map point. `locate_user` uses a
+one-shot browser Geolocation request when asked to locate the device; permission
+is required. Coordinates, accuracy and observation time become available to Capri
+after success. The map shows an approximate device pin, planning authority when
+matched, and accuracy in the stacked legend. Pins reproject with camera movement,
+2D/3D and terrain changes. Denial/timeouts are reported; positions outside UK map
+bounds are described without miscentring the UK map. There is no background
+location watch or IP-based location guess. Device coordinates are held in page
+memory until reload and included in chat context after an explicit location
+request; ordinary saved chat may contain the resulting explanation.
+
+The unfinished 'Spawn 100 clouds' menu item is removed. No cloud-spawning control
+or general web-search capability is advertised.
