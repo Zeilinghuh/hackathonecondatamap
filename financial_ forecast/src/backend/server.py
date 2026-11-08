@@ -17,6 +17,9 @@ import os
 import re
 import socket
 import subprocess
+import threading
+from urllib.parse import parse_qs, urlparse
+from forecast_service import VARS, ForecastService
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, ClassVar
@@ -31,6 +34,7 @@ BUSINESS_DEATHS_PATH = PROJECT_ROOT / "assets" / "data" / "business_deaths.csv"
 TERRAIN = TerrainStore()
 CAPRI = CapriService(PROJECT_ROOT)
 SPEECH = SpeechService()
+FORECAST = ForecastService(PROJECT_ROOT / "assets" / "data" / "all-datasets.xlsx")
 
 
 class LocalHTTPServer(ThreadingHTTPServer):
@@ -106,6 +110,25 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)
+            return
+        if route == "/api/forecast":
+            try:
+                q = parse_qs(urlparse(self.path).query)
+                shocks = {v: max(-3.0, min(3.0, float(q[f"shock_{v}"][0]))) for v in VARS if f"shock_{v}" in q}
+                bias = max(-1.0, min(1.0, float(q.get("rate_bias", ["0"])[0])))
+                content, compressed, etag = FORECAST.response(shocks, bias)
+                gz = "gzip" in self.headers.get("Accept-Encoding", "").lower()
+                body = compressed if gz else content
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("ETag", etag)
+                if gz:
+                    self.send_header("Content-Encoding", "gzip")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except (OSError, KeyError, ValueError) as error:
+                self.send_json({"error": str(error)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
         if route in {"/api/terrain", "/api/history"}:
             try:
@@ -242,7 +265,7 @@ def main() -> None:
         metadata = TERRAIN.metadata()
         print(json.dumps(metadata, indent=2))
         return
-
+    threading.Thread(target=FORECAST.prepare, daemon=True).start()
     try:
         server = LocalHTTPServer(("127.0.0.1", args.port), TerrainRequestHandler)
     except OSError:
