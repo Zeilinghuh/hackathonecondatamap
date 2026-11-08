@@ -1,10 +1,10 @@
-                            income_per_head  weekly_pay  inward_fdi  business_deaths  population density  Modelled unemployment Rate
-income_per_head                        1.00        0.68        0.29            -0.16                0.34                       -0.18
-weekly_pay                             0.68        1.00        0.39             0.10                0.41                       -0.17
-inward_fdi                             0.29        0.39        1.00             0.18                0.13                        0.04
-business_deaths                       -0.16        0.10        0.18             1.00                0.38                        0.49
-population density                     0.34        0.41        0.13             0.38                1.00                        0.45
-Modelled unemployment Rate            -0.18       -0.17        0.04             0.49                0.45                        1.00
+                    income_per_head  weekly_pay  inward_fdi  business_deaths  population density  Employment Rate
+income_per_head                1.00        0.68        0.29            -0.16                0.34             0.18
+weekly_pay                     0.68        1.00        0.39             0.10                0.41             0.33
+inward_fdi                     0.29        0.39        1.00             0.18                0.13             0.16
+business_deaths               -0.16        0.10        0.18             1.00                0.38            -0.21
+population density             0.34        0.41        0.13             0.38                1.00            -0.12
+Employment Rate                0.18        0.33        0.16            -0.21               -0.12             1.00
 
 --Implementation--
 -used a function to iterate through different sheets in python
