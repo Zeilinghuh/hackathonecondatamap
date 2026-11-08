@@ -27,8 +27,8 @@ subsequent starts reuse generated terrain.
 
 Drag/arrow keys pan. In 3D, Shift-drag/right-drag or Shift-arrow rotates.
 Scroll/+/- zoom; two fingers pan/pinch; UK view/0 resets. **Map layer** picks
-TERRAIN (income heights), DENSITY (ONS residents per km², one flat colour per
-authority) or BORDERS. On DENSITY or BORDERS,
+TERRAIN (income heights), DENSITY (a second terrain from log₁₀ ONS residents
+per km², with its own contours, in 2D and 3D) or BORDERS. On BORDERS,
 hover an authority for a cyan glow, click to select it, then choose **Ask Capri
 to explain** in the side panel. That button submits a chat request about the
 selected authority; hovering does not call AI.

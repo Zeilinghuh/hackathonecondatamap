@@ -21,9 +21,10 @@ The map is an economic metaphor: heights represent gross disposable household
 income per head, not geographic altitude, wealth or a flood prediction. RichDEM
 stores the grid and computes synthetic slopes. Higher income becomes higher
 synthetic terrain; the rainbow runs blue to red, then dark crimson at the peaks.
-A separate flat DENSITY layer colours each authority by ONS population density
-(residents per square kilometre), dark magenta for sparse to pale pink for
-crowded. Density never changes terrain heights; it is an authority average.
+A separate DENSITY layer is a second synthetic terrain with its own contours:
+height follows log10 ONS population density (residents per square kilometre),
+bright blue lows are sparse and black peaks are crowded, with white contours. It never changes
+the income terrain; authority values are averages.
 No weather/disaster simulation is running yet. Do not claim that chat changes the
 map or that a hypothetical disaster actually happened. Never invent numerical
 observations, forecasts, casualties or damage. Explain what is unknown.

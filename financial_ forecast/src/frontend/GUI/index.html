@@ -20,7 +20,7 @@
         <p class="map-hint">Scroll to zoom · Drag to explore</p>
         <p id="hover-label" class="hover-label" hidden></p>
         <p id="view-status" class="view-status" role="status" hidden></p>
-        <div id="loading" class="loading">Generating terrain from local-authority income data…</div>
+        <div id="loading" class="loading">Generating terrain from local-authority income and density data…</div>
         <div class="map-key" id="terrain-key" aria-label="Elevation colour scale">
           <span id="legend-low">Lower terrain</span>
           <div class="gradient"></div>
@@ -29,12 +29,13 @@
         <div class="map-key density-key" id="density-key" aria-label="Population density colour scale" hidden>
           <span id="density-title" class="key-title">Residents per km²</span>
           <ul id="density-classes" class="density-classes"></ul>
+          <span id="density-scale" class="key-scale">Log heights</span>
         </div>
       </section>
       <aside id="sidebar" class="controls-panel">
         <p class="eyebrow">UK // ECON TERRAIN</p>
         <h1>FINANCIAL<br>FORECAST</h1>
-        <p class="intro">Income per head shapes the terrain. Colour bands and contour lines show synthetic height, not geographic altitude. Switch to the density layer to see where people live.</p>
+        <p class="intro">Income per head shapes the terrain. Colour bands and contour lines show synthetic height, not geographic altitude. The density layer raises a second terrain from residents per km².</p>
 
         <div class="view-switch" role="group" aria-label="Map view">
           <button id="view-2d" aria-pressed="true" disabled>2D MAP</button>

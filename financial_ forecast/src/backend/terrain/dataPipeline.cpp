@@ -251,8 +251,21 @@ void properties(Writer& writer, const Feature& feature) {
     if (feature.density) writer.Double(*feature.density); else writer.Null_();
     writer.EndObject();
 }
+// Density heights are log10(residents per km²), rescaled by writeDEM to 0–1000:
+// log10 density = log10Range[0] + height / 1000 * (log10Range[1] - log10Range[0]).
+struct DensitySummary { unsigned matched = 0; std::array<double, 2> log10Range{}; };
+DensitySummary summarize(const std::vector<Sample>& samples) {
+    DensitySummary summary{static_cast<unsigned>(samples.size()), {0, 0}};
+    if (samples.empty()) return summary;
+    summary.log10Range = {samples.front()[2], samples.front()[2]};
+    for (const auto& sample : samples) {
+        summary.log10Range[0] = std::min(summary.log10Range[0], sample[2]);
+        summary.log10Range[1] = std::max(summary.log10Range[1], sample[2]);
+    }
+    return summary;
+}
 void metadata(Writer& writer, const Table& income, const Table& density, unsigned matched,
-              unsigned densityMatched, unsigned total) {
+              const DensitySummary& densitySummary, unsigned total) {
     writer.StartObject(); key(writer,"metric"); text(writer,"Gross disposable household income per head");
     key(writer,"source_year"); text(writer,income.year);
     key(writer,"elevation_range_m"); writer.StartArray(); writer.Int(0); writer.Int(1000); writer.EndArray();
@@ -266,8 +279,11 @@ void metadata(Writer& writer, const Table& income, const Table& density, unsigne
     key(writer,"metric"); text(writer,"Population density");
     key(writer,"units"); text(writer,"residents per square kilometre");
     key(writer,"source_year"); text(writer,density.year);
-    key(writer,"matched_authorities"); writer.Uint(densityMatched);
-    key(writer,"method"); text(writer,"Authority-level ONS mid-year value drawn as a flat choropleth; it does not change terrain heights");
+    key(writer,"matched_authorities"); writer.Uint(densitySummary.matched);
+    key(writer,"height_scale"); text(writer,"log10");
+    key(writer,"log10_range"); writer.StartArray();
+    writer.Double(densitySummary.log10Range[0]); writer.Double(densitySummary.log10Range[1]); writer.EndArray();
+    key(writer,"method"); text(writer,"Smoothed inverse-distance interpolation of log10 density samples into its own RichDEM grid (density_dem); synthetic elevation, not geographic altitude");
     writer.EndObject(); writer.EndObject();
 }
 }
@@ -299,14 +315,14 @@ void buildProduct(const std::filesystem::path& boundaries, const std::filesystem
     const auto& features = field(document,"features");
     if (!features.IsArray()) throw std::runtime_error("Expected a GeoJSON feature array.");
     std::vector<Feature> records;
-    std::vector<Sample> samples;
-    unsigned densityMatched = 0;
+    std::vector<Sample> samples, densitySamples;
     for (rapidjson::SizeType i = 0; i < features.Size(); ++i) {
         const auto& props = field(features[i],"properties");
         Feature record{stringField(props,"LPA26CD"),stringField(props,"LPA26NM"),std::nullopt,std::nullopt};
         const auto lookup = normalized(record.name);
-        if (const auto found = density.values.find(lookup); found != density.values.end()) {
-            record.density = found->second; ++densityMatched;
+        if (const auto found = density.values.find(lookup); found != density.values.end() && found->second >= 1) {
+            record.density = found->second;
+            densitySamples.push_back({numericField(props,"LONG"),numericField(props,"LAT"),std::log10(found->second)});
         }
         const auto match = income.values.find(lookup);
         if (match != income.values.end()) {
@@ -316,6 +332,8 @@ void buildProduct(const std::filesystem::path& boundaries, const std::filesystem
         records.push_back(std::move(record));
     }
     if (samples.empty()) throw std::runtime_error("No boundaries match the income dataset.");
+    if (densitySamples.empty()) throw std::runtime_error("No boundaries match the population density dataset.");
+    const auto densitySummary = summarize(densitySamples);
     std::ofstream out(output, std::ios::binary); out.exceptions(std::ios::badbit | std::ios::failbit);
     out << "{\"type\":\"FeatureCollection\",\"features\":[";
     for (rapidjson::SizeType i = 0; i < features.Size(); ++i) {
@@ -326,11 +344,15 @@ void buildProduct(const std::filesystem::path& boundaries, const std::filesystem
         if (i) out << ',';
         out << buffer.GetString();
     }
-    out << "],\"dem\":"; writeDEM(out,GridSpec{},samples); out << ",\"metadata\":";
-    Buffer meta; Writer metaWriter(meta,9); metadata(metaWriter,income,density,samples.size(),densityMatched,records.size());
+    out << "],\"dem\":"; writeDEM(out,GridSpec{},samples);
+    // Same grid, interpolation, RichDEM slope and native contours as the income terrain.
+    out << ",\"density_dem\":";
+    writeDEM(out,GridSpec{},densitySamples,"Log10 population-density synthetic elevation");
+    out << ",\"metadata\":";
+    Buffer meta; Writer metaWriter(meta,9); metadata(metaWriter,income,density,samples.size(),densitySummary,records.size());
     out << meta.GetString() << '}'; out.close();
     Buffer facts; Writer writer(facts,9);
-    writer.StartObject(); key(writer,"metadata"); metadata(writer,income,density,samples.size(),densityMatched,records.size());
+    writer.StartObject(); key(writer,"metadata"); metadata(writer,income,density,samples.size(),densitySummary,records.size());
     key(writer,"authorities"); writer.StartObject();
     for (const auto& record : records) { text(writer,record.code); properties(writer,record); }
     writer.EndObject(); writer.EndObject();

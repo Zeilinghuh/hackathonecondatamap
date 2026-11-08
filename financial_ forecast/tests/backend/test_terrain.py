@@ -210,6 +210,28 @@ class AssetIntegrationTests(unittest.TestCase):
         self.assertTrue(all(value is None or value > 0 for value in densities))
         self.assertIn("population_density", api.TERRAIN.context())
 
+    def test_density_has_its_own_log_scaled_native_terrain(self):
+        data = json.loads(api.TERRAIN.response()[0])
+        dem, income = data["density_dem"], data["dem"]
+        meta = data["metadata"]["population_density"]
+        self.assertEqual(dem["backend"], "RichDEM")
+        self.assertEqual((dem["width"], dem["height"]), (income["width"], income["height"]))
+        self.assertEqual(dem["bounds"], income["bounds"])
+        self.assertEqual(len(dem["values"]), 200 * 320)
+        self.assertEqual(len(dem["analysis"]["slope_riserun"]), 200 * 320)
+        self.assertTrue(all(0 <= value <= 1000 for value in dem["values"]))
+        self.assertTrue(dem["contours"])
+        self.assertNotEqual(dem["values"], income["values"])
+        low, high = meta["log10_range"]
+        self.assertEqual(meta["height_scale"], "log10")
+        densities = [
+            feature["properties"]["population_density"]
+            for feature in data["features"]
+            if feature["properties"]["population_density"] is not None
+        ]
+        self.assertAlmostEqual(low, math.log10(min(densities)))
+        self.assertAlmostEqual(high, math.log10(max(densities)))
+
     def test_http_serves_native_terrain_and_overlay(self):
         server = api.ThreadingHTTPServer(("127.0.0.1", 0), api.TerrainRequestHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)

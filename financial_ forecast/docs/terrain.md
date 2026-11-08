@@ -43,8 +43,13 @@ The product represents 2024 gross disposable household income per head:
 unshaded. Heights are an income metaphor, not physical altitude or wealth.
 
 Each feature also carries `population_density`: residents per km² at mid-2025
-from the same ONS workbook, joined by the same name match (361/382). It never
-feeds the DEM; `metadata.population_density` records its year and coverage.
+from the same ONS workbook, joined by the same name match (361/382). C++ feeds
+log₁₀ density samples through the same `writeDEM` (interpolation, RichDEM grid
+and slope, 5-unit marching-squares contours) into a second product field,
+`density_dem`. Log scaling keeps the Highlands (8/km²) and inner London
+(16,906/km²) on one readable surface. `metadata.population_density.log10_range`
+maps height back: `log10(d) = low + height / 1000 × (high − low)`. Density
+never changes the income `dem`.
 No depression filling, hydrology or weather simulation modifies the surface.
 
 C++ writes the terrain JSON plus a small authority/context index. Python serves
@@ -75,14 +80,17 @@ The main range spans the DEM's 2nd–98th percentiles; the red tail reaches the
 actual maximum. The shader draws anti-aliased 5-unit isolines with heavier
 25-unit lines and screen-width scaling. Dense lines fade on steep slopes.
 
-The **Map layer** switch picks TERRAIN, DENSITY or BORDERS. DENSITY is a flat
-choropleth texture, painted once from the cached authority paths, uploaded once
-and drawn on the unraised mesh in both views. Nine classes (breaks at 50, 100,
-250, 500, 1k, 2.5k, 5k and 10k per km²) use a single magenta ramp with steadily
-increasing lightness. Dark means sparse and pale pink means crowded, which keeps
-the cyan hover distinct. Unmatched authorities stay slate grey.
+The **Map layer** switch picks TERRAIN, DENSITY or BORDERS. DENSITY behaves
+like the income terrain: its own mesh (sharing the index buffer), colour texture
+and the same contour shader, flat in 2D and raised in 3D. Its display
+exaggeration is lower (`DENSITY_HEIGHT_SCALE`) because log heights fill most of
+0–1000. Fills are constant between contour levels. Each band takes the class of
+its density: nine classes (breaks at 50, 100, 250, 500, 1k, 2.5k, 5k and
+10k per km²) on a bright blue → black ramp with steadily falling lightness.
+Density contours are always white; the lightest blue keeps about 3:1 contrast
+with them. Unmatched authorities stay slate grey.
 
-With terrain off (DENSITY or BORDERS), cached boundary segments are drawn as instanced screen-width
+With BORDERS selected, cached boundary segments are drawn as instanced screen-width
 quads, so borders stay sharp at any zoom. A one-time expanded-buffer fallback
 supports browsers without instancing. Polygon highlight triangles are prepared
 once using locally vendored Earcut 3.0.2, including holes and disconnected

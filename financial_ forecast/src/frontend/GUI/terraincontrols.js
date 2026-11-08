@@ -2,7 +2,7 @@ import { CONTOUR_COLOURS, PEAK_COLOURS, DENSITY_BREAKS, DENSITY_COLOURS, NO_DATA
 
 const NOTES = {
   terrain: "Blue lows → cyan → green → yellow → red → dark crimson peaks.",
-  density: "Residents per km², one flat colour per authority. Dark = sparse, bright pink = crowded. Heights stay off.",
+  density: "Population density terrain: height follows log₁₀ residents per km². Bright blue lows are sparse, black peaks are crowded; contours are white.",
   borders: "Authority borders only. Hover an area, then click to select it.",
 };
 export const formatDensity = value => Math.round(value).toLocaleString() + " / km²";
@@ -41,9 +41,9 @@ export class TerrainControls {
     } catch {}
   }
 
-  // Income terrain overlay (raised in 3D, contours, no hover).
-  get visible() { return this.layer === "terrain"; }
-  // Flat population-density choropleth, drawn with borders and hover.
+  // Raised, contoured surface for the layer: "income", "density" or null (flat borders + hover).
+  get surface() { return {terrain: "income", density: "density"}[this.layer] ?? null; }
+  get visible() { return this.surface !== null; }
   get density() { return this.layer === "density"; }
 
   setLayer(layer) {
@@ -72,8 +72,18 @@ export class TerrainControls {
     }));
   }
 
-  setDensitySource(year) {
-    if (year) document.querySelector("#density-title").textContent = `Residents per km² · mid-${year}`;
+  // meta: metadata.population_density (source_year, log10_range).
+  setDensitySource(meta) {
+    if (!meta) return;
+    document.querySelector("#density-title").textContent = `Residents per km² · mid-${meta.source_year}`;
+    const [low, high] = meta.log10_range ?? [];
+    if (Number.isFinite(low) && Number.isFinite(high)) {
+      // Heights are 0–1000; major contours every 25 units multiply density by this factor.
+      const factor = 10 ** ((high - low) * 25 / 1000);
+      document.querySelector("#density-scale").textContent = `Log heights · each bold contour ≈ ×${factor.toFixed(2)}`;
+      NOTES.density = `Population density terrain: height follows log₁₀ residents per km², so each bold contour ≈ ×${factor.toFixed(2)} people. Bright blue lows are sparse, black peaks are crowded; contours are white.`;
+      if (this.layer === "density") document.querySelector("#control-note").textContent = NOTES.density;
+    }
   }
 
   setReady() { document.querySelectorAll(".view-switch button").forEach(button => { button.disabled = false; }); }

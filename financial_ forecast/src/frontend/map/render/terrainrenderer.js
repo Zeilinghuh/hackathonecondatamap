@@ -1,4 +1,4 @@
-import { cameraBasis, terrainMesh, pickTerrain, latitudeAt, HEIGHT_SCALE } from "../terrainmath.js";
+import { cameraBasis, terrainMesh, pickTerrain, latitudeAt, HEIGHT_SCALE, DENSITY_HEIGHT_SCALE } from "../terrainmath.js";
 import { createProgram, uploadBuffer } from "./gl.js";
 import { AreaLayer } from "./arealayer.js";
 
@@ -8,13 +8,14 @@ attribute vec3 normal;
 attribute vec2 uv;
 uniform mat4 camera;
 uniform mediump float raised;
+uniform float heightScale;
 varying vec2 textureUV;
 varying float light;
 varying float heightValue;
 void main() {
   gl_Position = camera * vec4(position.x, position.y * raised, position.z, 1.0);
   textureUV = uv;
-  heightValue = position.y / ${HEIGHT_SCALE};
+  heightValue = position.y / heightScale;
   light = mix(1.0, .76 + .24 * max(0.0, dot(normal, normalize(vec3(-.5,1.0,.7)))), raised);
 }`;
 const fragmentSource = `
@@ -25,6 +26,7 @@ uniform sampler2D matched;
 uniform float contoursOn;
 uniform float contourInterval;
 uniform float pixelRatio;
+uniform float densitySurface;
 varying vec2 textureUV;
 varying float light;
 varying float heightValue;
@@ -41,22 +43,30 @@ void main() {
   vec4 colour = texture2D(surface, textureUV);
   if (colour.a < .5) discard;
   vec3 shaded = colour.rgb * light;
-  float minor = contour(contourInterval,.45)*.62;
+  // White density contours are quieter between bold lines so the blue stays legible.
+  float minor = contour(contourInterval,.45)*mix(.62,.3,densitySurface);
   float major = contour(contourInterval*5.0,.75)*.86;
   float lines = max(minor,major)*contoursOn*texture2D(matched,textureUV).a;
   float luminance = dot(shaded,vec3(.2126,.7152,.0722));
-  float darkBlue = (colour.b > colour.r && luminance < .12) ? 1.0 : 0.0;
-  vec3 ink = mix(vec3(.01,.025,.04),vec3(.5,.65,.8),darkBlue);
+  // Income: dark ink, pale blue on dark-blue lows. Density: white contours everywhere.
+  float lightInk = (colour.b > colour.r && luminance < .12) ? 1.0 : 0.0;
+  vec3 ink = mix(mix(vec3(.01,.025,.04),vec3(.5,.65,.8),lightInk),vec3(1.0),densitySurface);
   gl_FragColor = vec4(mix(shaded,ink,lines),1.0);
 }`;
 
+// Surfaces: "income" (data.dem) and "density" (data.density_dem); null = flat borders.
 export class TerrainRenderer {
-  constructor(canvas, dem, textureSource, areas, {onUnavailable, onRestore}) {
+  constructor(canvas, dems, textureSource, areas, {onUnavailable, onRestore}) {
     this.canvas = canvas;
-    this.dem = dem;
+    this.dem = dems.income;
     this.textureSource = textureSource;
     this.areas = areas;
-    this.mesh = terrainMesh(dem);
+    this.meshes = {income: terrainMesh(dems.income)};
+    if (dems.density) {
+      if (dems.density.width !== this.dem.width || dems.density.height !== this.dem.height)
+        throw new Error("Density and income grids must share one size.");
+      this.meshes.density = terrainMesh(dems.density, DENSITY_HEIGHT_SCALE);
+    }
     this.reset();
     this.gl = canvas.getContext("webgl", {alpha: false, antialias: true, powerPreference: "low-power"});
     if (!this.gl) throw new Error("Map graphics are unavailable in this browser.");
@@ -76,19 +86,23 @@ export class TerrainRenderer {
     if (!gl.getExtension("OES_standard_derivatives")) throw new Error("This browser cannot draw the map contours.");
     this.program = createProgram(gl,vertexSource,fragmentSource,["position","normal","uv"]);
     gl.useProgram(this.program);
-    this.vertexBuffer = uploadBuffer(gl,gl.ARRAY_BUFFER,this.mesh.vertices);
-    this.indexBuffer = uploadBuffer(gl,gl.ELEMENT_ARRAY_BUFFER,this.mesh.indices);
+    // Same grid, so the index buffer is shared; each surface has its own heights.
+    this.vertexBuffers = Object.fromEntries(Object.entries(this.meshes)
+      .map(([name,mesh]) => [name, uploadBuffer(gl,gl.ARRAY_BUFFER,mesh.vertices)]));
+    this.indexBuffer = uploadBuffer(gl,gl.ELEMENT_ARRAY_BUFFER,this.meshes.income.indices);
     this.cameraLocation = gl.getUniformLocation(this.program, "camera");
     this.raisedLocation = gl.getUniformLocation(this.program, "raised");
     this.contoursLocation = gl.getUniformLocation(this.program,"contoursOn");
     this.ratioLocation = gl.getUniformLocation(this.program, "pixelRatio");
+    this.densityLocation = gl.getUniformLocation(this.program, "densitySurface");
+    this.heightScaleLocation = gl.getUniformLocation(this.program, "heightScale");
     gl.uniform1f(gl.getUniformLocation(this.program,"contourInterval"),this.dem.contour_interval || 5);
     gl.uniform1i(gl.getUniformLocation(this.program, "surface"), 0);
     gl.uniform1i(gl.getUniformLocation(this.program, "matched"), 1);
     // Upload only at creation/restoration, never when moving the camera.
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
     this.textures = [this.textureSource.base, this.textureSource.terrain, this.textureSource.matched,
-      this.textureSource.density].map(source => {
+      this.textureSource.densityTerrain].map(source => {
       const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
       let image = source;
       if (source.height > Math.min(3072, maxSize) || source.width > maxSize) {
@@ -125,12 +139,14 @@ export class TerrainRenderer {
     return {centre, basis, matrix};
   }
 
-  // visible: income terrain overlay. density: flat density fill when terrain is off.
-  draw(view, visible, mode="2d", highlights=[], density=false) {
+  surfaceOf(surface) { return surface && this.meshes[surface] ? surface : null; }
+
+  draw(view, surface, mode="2d", highlights=[]) {
     const gl = this.gl;
     if (gl.isContextLost()) return;
+    surface = this.surfaceOf(surface);
     gl.useProgram(this.program);
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffers[surface || "income"]);
     for (const [index,size,offset] of [[0,3,0],[1,3,12],[2,2,24]]) {
       gl.enableVertexAttribArray(index); gl.vertexAttribPointer(index,size,gl.FLOAT,false,32,offset);
     }
@@ -140,12 +156,14 @@ export class TerrainRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const matrix = this.camera(view,mode).matrix;
     gl.uniformMatrix4fv(this.cameraLocation, false, matrix);
-    gl.uniform1f(this.raisedLocation, visible && mode === "3d" ? 1 : 0);
-    gl.uniform1f(this.contoursLocation,visible ? 1 : 0);
+    gl.uniform1f(this.raisedLocation, surface && mode === "3d" ? 1 : 0);
+    gl.uniform1f(this.contoursLocation,surface ? 1 : 0);
+    gl.uniform1f(this.densityLocation,surface === "density" ? 1 : 0);
+    gl.uniform1f(this.heightScaleLocation,surface === "density" ? DENSITY_HEIGHT_SCALE : HEIGHT_SCALE);
     gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
-    gl.bindTexture(gl.TEXTURE_2D, this.textures[visible ? 1 : density ? 3 : 0]);
-    gl.drawElements(gl.TRIANGLES, this.mesh.indices.length, gl.UNSIGNED_SHORT, 0);
-    if (!visible) this.areaLayer.draw(matrix,view,highlights);
+    gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3}[surface] ?? 0]);
+    gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
+    if (!surface) this.areaLayer.draw(matrix,view,highlights);
   }
 
   pan(view, dx, dy) {
@@ -159,18 +177,19 @@ export class TerrainRenderer {
     view.offsetY -= lat*view.scale;
   }
 
-  pick(point, view, visible, accepts, mode="3d") {
+  pick(point, view, surface, accepts, mode="3d") {
+    surface = this.surfaceOf(surface);
     const {centre, basis: {right: r, up: u, depth: d}} = this.camera(view,mode);
     const x = (point.x-view.width/2)/view.scale, y = (view.height/2-point.y)/view.scale;
     const origin = centre.map((value,i) => value + r[i]*x + u[i]*y + d[i]*80);
     const direction = d.map(value => -value);
-    if (!visible || mode === "2d") {
+    if (!surface || mode === "2d") {
       const t = -origin[1]/direction[1];
       const p = origin.map((value,i) => value + t*direction[i]);
       const lonLat = [p[0], latitudeAt(p[2])];
       return accepts(lonLat) ? lonLat : null;
     }
-    const hit = pickTerrain(this.mesh, {origin, direction,
+    const hit = pickTerrain(this.meshes[surface], {origin, direction,
       accept: p => accepts([p[0], latitudeAt(p[2])])});
     return hit ? [hit[0], latitudeAt(hit[2])] : null;
   }

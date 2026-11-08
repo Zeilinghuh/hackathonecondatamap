@@ -82,9 +82,10 @@ h1 { margin: 0; color: var(--pink); font-family: Arcade, monospace; font-size: 1
 .layer-switch button[data-layer="density"][aria-pressed="true"] { color: var(--pink); border-color: var(--pink); background: #302138; }
 .density-key { gap: 6px; }
 .key-title { color: var(--text); font-weight: bold; }
+.key-scale { color: var(--muted); }
 .density-classes { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
 .density-classes li { display: flex; align-items: center; gap: 8px; }
-.density-classes .swatch { width: 18px; height: 10px; flex: none; border: 1px solid #0b1018; }
+.density-classes .swatch { width: 18px; height: 10px; flex: none; border: 1px solid #75849a; }
 .switch-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 13px; font-weight: bold; }
 input[type="checkbox"] { appearance: none; width: 21px; height: 21px; margin: 0; border: 2px solid #697b95; background: var(--sea); cursor: pointer; }
 input[type="checkbox"]:checked { border-color: var(--cyan); background: var(--cyan); box-shadow: inset 0 0 0 4px var(--panel); }
