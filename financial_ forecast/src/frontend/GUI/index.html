@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>UK economic terrain</title>
     <link rel="stylesheet" href="/GUI/styles.css" />
+    <link rel="stylesheet" href="/GUI/vegetation.css" />
   </head>
   <body>
     <main class="app-shell">
       <section class="map-panel" aria-label="UK economic terrain map">
         <button id="sidebar-toggle" class="sidebar-toggle" aria-controls="sidebar" aria-expanded="true">Hide panel ▸</button>
         <canvas id="map" tabindex="0" aria-label="Interactive map of UK planning authorities. Use arrow keys to pan, plus and minus to zoom, and zero to reset."></canvas>
+        <div id="vegetation-overlay" class="vegetation-overlay" aria-hidden="true" hidden></div>
         <div class="navigation" aria-label="Map navigation">
           <button id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
           <output id="zoom-level" aria-live="polite">1×</output>
@@ -31,6 +33,15 @@
           <ul id="density-classes" class="density-classes"></ul>
           <span id="density-scale" class="key-scale">Log heights</span>
         </div>
+        <div class="map-key vegetation-key" id="vegetation-key" aria-label="Employment vegetation legend" hidden>
+          <span id="vegetation-title" class="key-title">Employment landscape</span>
+          <div class="vegetation-ramp" aria-hidden="true"></div>
+          <div class="vegetation-range"><span>Below 65%</span><span>85%+</span></div>
+          <span class="key-scale">Darker green = higher employment, ages 16–64.</span>
+          <p class="vegetation-tree-note">Small trees mark only the highest band: 85%+.</p>
+          <span class="key-scale"><span class="vegetation-missing" aria-hidden="true"></span>No data</span>
+          <p id="vegetation-summary" class="vegetation-summary"></p>
+        </div>
         <div class="map-key mist-key" id="mist-key" aria-label="Business death rate mist scale" hidden>
           <span class="key-title">Business deaths · 2024</span>
           <div class="mist-gradient"></div>
@@ -40,18 +51,19 @@
       <aside id="sidebar" class="controls-panel">
         <p class="eyebrow">UK // ECON TERRAIN</p>
         <h1>FINANCIAL<br>FORECAST</h1>
-        <p class="intro">Income per head shapes the terrain. Colour bands and contour lines show synthetic height, not geographic altitude. Switch to population density or toggle the business-death mist over the map.</p>
+        <p class="intro">Income per head shapes the terrain; population density and employment offer other views. Toggle the business-death mist over the map, and explore recorded years to watch the data change.</p>
 
         <div class="view-switch" role="group" aria-label="Map view">
           <button id="view-2d" aria-pressed="true" disabled>2D MAP</button>
-          <button id="view-3d" aria-pressed="false" disabled>3D TERRAIN</button>
+          <button id="view-3d" aria-pressed="false" disabled>3D Map</button>
         </div>
 
         <div class="layer-row">
           <span id="layer-label">Map layer</span>
           <div class="layer-switch" role="group" aria-labelledby="layer-label">
-            <button data-layer="terrain" aria-pressed="true">TERRAIN</button>
+            <button data-layer="terrain" aria-pressed="true" title="Currently displays gross disposable household income per head">GDP per capita</button>
             <button data-layer="density" aria-pressed="false">DENSITY</button>
+            <button data-layer="vegetation" aria-pressed="false">VEGETATION</button>
             <button data-layer="borders" aria-pressed="false">BORDERS</button>
           </div>
         </div>

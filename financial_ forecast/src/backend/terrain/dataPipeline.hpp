@@ -11,7 +11,9 @@ void buildProduct(const std::filesystem::path& boundaries,
                   const std::filesystem::path& incomeSheet,
                   const std::filesystem::path& densitySheet,
                   const std::filesystem::path& output,
-                  const std::filesystem::path& context);
+                  const std::filesystem::path& context,
+                  const std::filesystem::path& employmentGB = {},
+                  const std::filesystem::path& employmentNI = {});
 void writeIncome(std::ostream& out, const std::filesystem::path& sharedStrings,
                  const std::filesystem::path& worksheet);
 void writeSimplifiedGeometry(std::istream& input, std::ostream& out);
