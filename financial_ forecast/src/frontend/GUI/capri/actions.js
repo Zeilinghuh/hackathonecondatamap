@@ -41,12 +41,17 @@ export class AppActions {
   }
   plan(message) {
     const text=message.toLowerCase().trim();if(/\b(?:don'?t|do not|never)\b/.test(text))return null;
+    // Parameter edits need the model's structured action; a layer-name match
+    // must not consume an instruction such as "set income growth in Barnet".
+    if(/\b(?:shock|growth|stance|increase|decrease|boost|raise|lower|standard deviations?)\b/.test(text))return null;
     const result=[];
     const year=text.match(/\b(19\d{2}|20\d{2})\b/);
+    if(new Set(text.match(/\b(?:19\d{2}|20\d{2})\b/g)||[]).size>1)return null;
     const area=this.areas.areas.filter(a=>{
       const name=a.feature.properties.authority_name.toLowerCase().replace(/ lpa$/,'').replace(/^city of /,'');
       return name.length>=3&&new RegExp('\\b'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b').test(text);
     }).sort((a,b)=>b.feature.properties.authority_name.length-a.feature.properties.authority_name.length)[0];
+    if(!area&&/\b(?:find|focus|take me|go to|select)\b/.test(text)&&! /^(?:please\s+)?(?:go to|select)\s+(?:the\s+)?(?:year\s+)?\d{4}[.!?]?$/.test(text))return null;
     const control=/^(?:please\s+)?(?:find|show|go to|focus|select|take me|switch|change|set|enable|disable|turn|hide|open|close|play|pause|stop|zoom|reset|mute|unmute|start|return|use)\b/.test(text);
     if(area&&(control||year))result.push({type:'select_area',target:area.feature.properties.authority_name});
     if(!control&&!result.length)return null;

@@ -23,6 +23,10 @@ test('local commands resolve Barnet 2019 and compose view/layer changes',()=>{
  assert.deepEqual(actions.plan('show employment in 3D'),[{type:'set_layer',layer:'employment'},{type:'set_view',mode:'3d'}]);
  assert.equal(actions.plan("don't change the year to 2019"),null);
  assert.equal(actions.plan('why are incomes different?'),null);
+ assert.equal(actions.plan('set income growth in Barnet to one standard deviation'),null);
+ assert.equal(actions.plan('set the rate stance to 0.5'),null);
+ assert.equal(actions.plan('find Atlantis in 2019'),null);
+ assert.equal(actions.plan('find Barnet in 2019 and then 2020'),null);
 });
 
 test('actions reject unknown code, nonfinite values and ambiguous authority names',async()=>{
