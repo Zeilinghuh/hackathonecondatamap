@@ -1,10 +1,11 @@
-import { TerrainTexture } from "./render/terraintexture.js";
-import { TerrainRenderer } from "./render/terrainrenderer.js";
+import { TerrainTexture } from "./render/terraintexture.js?v=density-blue-pink-3";
+import { TerrainRenderer } from "./render/terrainrenderer.js?v=density-blue-pink-3";
 import { AreaIndex } from "./areas.js";
 import { AreaInteraction } from "./areainteraction.js";
 import { MapNavigation } from "./mapnavigation.js";
 import { TerrainControls, formatDensity, sfx } from "../GUI/terraincontrols.js";
 import { CapriCompanion, AreaMenu } from "../GUI/capri/capri.js";
+>>>>>>> 57a313714be24670c8309fa60a8ff4f1b72ac03a
 import { Timeline } from "../GUI/timeline.js";
 import { VegetationLayer, vegetationState } from "./vegetation.js";
 

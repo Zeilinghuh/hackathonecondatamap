@@ -93,9 +93,10 @@ and the same contour shader, flat in 2D and raised in 3D. Its display
 exaggeration is lower (`DENSITY_HEIGHT_SCALE`) because log heights fill most of
 0–1000. Fills are constant between contour levels. Each band takes the class of
 its density: nine classes (breaks at 50, 100, 250, 500, 1k, 2.5k, 5k and
-10k per km²) on a bright blue → black ramp with steadily falling lightness.
-Density contours are always white; the lightest blue keeps about 3:1 contrast
-with them. Unmatched authorities stay slate grey.
+10k per km²) on an electric blue → purple → hot pink ramp: blue is sparse
+and pink is dense.
+Density contours are white, with stronger major lines. Unmatched authorities
+stay slate grey.
 
 With BORDERS selected, cached boundary segments are drawn as instanced screen-width
 quads, so borders stay sharp at any zoom. A one-time expanded-buffer fallback
@@ -155,8 +156,12 @@ pixels for the current data) changes only when the selected year changes.
 Camera movement does not repaint paths or upload data. No extra canvas or
 plant image assets are added.
 
-Vegetation uses a pale blue sea and a flat, pale land surface. In 3D the same
-plane tilts while CSS trees remain upright and follow pan, zoom and rotation.
+The map background is black. Vegetation keeps its flat green employment surface
+and adds dark green terrain-height contours beneath borders and highlights.
+The contour pass reuses the currently loaded income mesh, land mask and GPU
+buffers; employment-year changes affect the green fills and trees. Contours
+describe income-based landscape height. In 3D the same plane tilts while CSS
+trees remain upright and follow pan, zoom and rotation.
 Decorative trees are restricted to employment rates of **85%+**. Stable anchors
 reuse Earcut triangles and respect holes and islands. A reusable pool holds at
 most **48** CSS tree elements, with no more than **28** shown on desktop or

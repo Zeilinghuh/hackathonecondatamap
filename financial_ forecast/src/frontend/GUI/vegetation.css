@@ -44,21 +44,18 @@
 .layer-switch button { flex-basis:calc(50% - 4px); }
 .layer-switch button[data-layer="vegetation"][aria-pressed="true"] { color:#c8ead3; border-color:#9bcdb0; background:#1d3b34; }
 .vegetation-key {
-  width:246px; gap:10px; color:#213d59; background:#f6fbffed;
+  gap:6px; color:var(--text); background:#000;
   border:1px solid #b6d6ed; border-left:3px solid #70a886; border-radius:8px;
   box-shadow:0 4px 18px #12334b1a; z-index:2;
 }
-.vegetation-key .key-title { color:#153554; }
-.vegetation-key .key-scale { color:#47647a; line-height:1.5; }
-.vegetation-ramp { height:12px; border-radius:3px; background:linear-gradient(90deg,var(--vegetation-colour-0),var(--vegetation-colour-1),var(--vegetation-colour-2),var(--vegetation-colour-3),var(--vegetation-colour-4)); }
-.vegetation-range { display:flex; justify-content:space-between; font-size:10px; }
-.vegetation-tree-note { margin:0; font-size:10px; line-height:1.5; }
-.vegetation-missing { display:inline-block; width:11px; height:8px; background:var(--vegetation-no-data); border:1px solid #91a7b5; margin-right:5px; }
+.vegetation-key .key-title { color:var(--text); }
+.vegetation-key .key-scale { color:var(--muted); }
+.vegetation-ramp { height:10px; border-radius:3px; background:linear-gradient(90deg,var(--vegetation-colour-0),var(--vegetation-colour-1),var(--vegetation-colour-2),var(--vegetation-colour-3),var(--vegetation-colour-4)); }
+.vegetation-key .legend-missing { background:var(--vegetation-no-data); border-color:#91a7b5; }
 .hover-label { z-index:3; }
-.vegetation-summary { margin:0; padding-top:7px; border-top:1px solid #d2e4ef; color:#47647a; font-size:9px; line-height:1.5; }
+.vegetation-summary { margin:8px 0 0; font-size:10px; line-height:1.5; }
 .employment-change[data-trend="growing"] { color:#a8dfb9; }
 .employment-change[data-trend="declining"] { color:#e7c994; }
-@media (max-width:760px) { .vegetation-key { width:210px; bottom:18px; } }
 @media (prefers-reduced-motion:reduce) {
   .vegetation-plant,.vegetation-plant::before,.vegetation-crown { transition:none !important; }
 }

@@ -10,13 +10,12 @@ export const CONTOUR_COLOURS = [
 // Extra headroom for the high-income peaks above the main rainbow range.
 export const PEAK_COLOURS = ["#df0000", "#bc0000", "#970000", "#720000", "#4d0000"];
 
-// Population density classes (residents per km²). Sequential ramp with OKLCH
-// lightness falling monotonically: bright blue = sparse -> black = crowded.
-// The lightest step stays mid-bright so white contour lines read on every band.
+// Population density classes (residents per km²): electric blue = sparse,
+// purple through the middle, hot pink = crowded.
 export const DENSITY_BREAKS = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
 export const DENSITY_COLOURS = [
-  "#389bfe", "#2383e5", "#286dbe", "#275899", "#234576",
-  "#1c3255", "#142036", "#0a101b", "#020306",
+  "#2787ff", "#437bff", "#5f6eff", "#7b62ff", "#9755ff",
+  "#b145e7", "#cb35ce", "#e524b6", "#ff149d",
 ];
 export const NO_DATA_COLOUR = "#26374a";
 export function densityClass(value) {

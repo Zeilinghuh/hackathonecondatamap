@@ -145,10 +145,11 @@ export class AreaLayer {
     gl.drawArrays(gl.TRIANGLES,area.fillStart,area.fillCount);
   }
 
-  draw(matrix,view,highlights,light=false) {
+  draw(matrix,view,highlights,light=false,afterFill) {
     const gl=this.gl;
     gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
     if(light && this.vegetationTexture)this.drawVegetation(matrix);
+    afterFill?.();
     this.stroke(matrix,view,0,this.index.segments.length/4,.9,light?[.3,.49,.59,.65]:[.55,.67,.79,.8]);
     for(const {area,opacity} of highlights) {
       this.highlight(matrix,area,opacity);
