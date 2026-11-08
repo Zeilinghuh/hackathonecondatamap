@@ -169,22 +169,68 @@ class AssetIntegrationTests(unittest.TestCase):
         geometry = self.simplify({"type": "Polygon", "coordinates": [outer, hole]})
         self.assertEqual(geometry["coordinates"], [outer, hole])
 
-    def test_income_table_is_named_table_16(self):
+    def read_table(self, stem):
         with tempfile.TemporaryDirectory(dir=service.BUILD_ROOT) as directory:
-            strings, sheet = service.unpack_income_xml(
+            strings, sheets = service.unpack_workbook_xml(
                 service.WORKBOOK_PATH, Path(directory)
             )
             result = subprocess.run(
-                [str(self.binary), "--income", str(strings), str(sheet)],
+                [str(self.binary), "--income", str(strings), str(sheets[stem])],
                 capture_output=True,
                 text=True,
                 timeout=10,
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            income = json.loads(result.stdout)
+            return json.loads(result.stdout)
+
+    def test_income_table_is_named_table_16(self):
+        income = self.read_table("income")
         self.assertEqual(income["source_year"], "2024")
         self.assertEqual(income["income_by_name"]["hartlepool"], 20080)
+
+    def test_population_density_table_is_named_table_3(self):
+        density = self.read_table("density")
+        self.assertEqual(density["source_year"], "2025")
+        self.assertEqual(density["income_by_name"]["hartlepool"], 1063)
+        self.assertEqual(density["income_by_name"]["middlesbrough"], 2836)
+
+    def test_features_carry_population_density(self):
+        data = json.loads(api.TERRAIN.response()[0])
+        meta = data["metadata"]["population_density"]
+        self.assertEqual(meta["source_year"], "2025")
+        self.assertGreaterEqual(meta["matched_authorities"], 361)
+        densities = [
+            feature["properties"]["population_density"]
+            for feature in data["features"]
+        ]
+        self.assertEqual(
+            sum(value is not None for value in densities), meta["matched_authorities"]
+        )
+        self.assertTrue(all(value is None or value > 0 for value in densities))
+        self.assertIn("population_density", api.TERRAIN.context())
+
+    def test_density_has_its_own_log_scaled_native_terrain(self):
+        data = json.loads(api.TERRAIN.response()[0])
+        dem, income = data["density_dem"], data["dem"]
+        meta = data["metadata"]["population_density"]
+        self.assertEqual(dem["backend"], "RichDEM")
+        self.assertEqual((dem["width"], dem["height"]), (income["width"], income["height"]))
+        self.assertEqual(dem["bounds"], income["bounds"])
+        self.assertEqual(len(dem["values"]), 200 * 320)
+        self.assertEqual(len(dem["analysis"]["slope_riserun"]), 200 * 320)
+        self.assertTrue(all(0 <= value <= 1000 for value in dem["values"]))
+        self.assertTrue(dem["contours"])
+        self.assertNotEqual(dem["values"], income["values"])
+        low, high = meta["log10_range"]
+        self.assertEqual(meta["height_scale"], "log10")
+        densities = [
+            feature["properties"]["population_density"]
+            for feature in data["features"]
+            if feature["properties"]["population_density"] is not None
+        ]
+        self.assertAlmostEqual(low, math.log10(min(densities)))
+        self.assertAlmostEqual(high, math.log10(max(densities)))
 
     def test_http_serves_native_terrain_and_overlay(self):
         server = api.ThreadingHTTPServer(("127.0.0.1", 0), api.TerrainRequestHandler)

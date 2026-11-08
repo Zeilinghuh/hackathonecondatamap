@@ -2,13 +2,16 @@
 export const mercator = latitude => Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) * 180 / Math.PI;
 export const latitudeAt = y => (2 * Math.atan(Math.exp(y * Math.PI / 180)) - Math.PI / 2) * 180 / Math.PI;
 export const HEIGHT_SCALE = .009; // Display exaggeration; DEM values stay unchanged.
+// Log-density heights fill most of 0–1000, so a lower exaggeration keeps its relief
+// comparable to the income terrain (mostly < 400 units).
+export const DENSITY_HEIGHT_SCALE = .0036;
 
 export function cameraBasis(yaw, tilt) {
   const s = Math.sin(yaw), c = Math.cos(yaw), st = Math.sin(tilt), ct = Math.cos(tilt);
   return { right: [c, 0, s], up: [-s * ct, st, c * ct], depth: [s * st, ct, -c * st] };
 }
 
-export function terrainMesh(dem) {
+export function terrainMesh(dem, heightScale = HEIGHT_SCALE) {
   const {width, height, values, bounds: [west, south, east, north]} = dem;
   if (width * height > 65536) throw new Error("The 3D grid exceeds the 16-bit mesh limit.");
   const top = mercator(north), bottom = mercator(south);
@@ -19,10 +22,10 @@ export function terrainMesh(dem) {
     const i = row * width + col, offset = i * 8;
     const x0 = Math.max(0, col - 1), x1 = Math.min(width - 1, col + 1);
     const z0 = Math.max(0, row - 1), z1 = Math.min(height - 1, row + 1);
-    const gx = HEIGHT_SCALE * (values[row * width + x1] - values[row * width + x0]) / ((x1 - x0) * dx);
-    const gz = HEIGHT_SCALE * (values[z0 * width + col] - values[z1 * width + col]) / ((z1 - z0) * dz);
+    const gx = heightScale * (values[row * width + x1] - values[row * width + x0]) / ((x1 - x0) * dx);
+    const gz = heightScale * (values[z0 * width + col] - values[z1 * width + col]) / ((z1 - z0) * dz);
     const length = Math.hypot(gx, 1, gz);
-    vertices.set([west + col * dx, values[i] * HEIGHT_SCALE, top - row * dz,
+    vertices.set([west + col * dx, values[i] * heightScale, top - row * dz,
       -gx / length, 1 / length, -gz / length, col / (width - 1), row / (height - 1)], offset);
   }
   const indices = new Uint16Array((width - 1) * (height - 1) * 6);

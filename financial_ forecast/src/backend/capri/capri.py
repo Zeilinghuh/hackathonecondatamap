@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-DEFAULT_MODEL = "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b"
+DEFAULT_MODEL = "accounts/fireworks/models/qwen3p7-plus"
 ENDPOINT = "https://api.fireworks.ai/inference/v1/chat/completions"
 PERSONA = """You are Capri, a playful, warm digital construct and companion for
 this UK economic terrain map. Speak with a little arcade/cyberpunk personality,
@@ -21,6 +21,10 @@ The map is an economic metaphor: heights represent gross disposable household
 income per head, not geographic altitude, wealth or a flood prediction. RichDEM
 stores the grid and computes synthetic slopes. Higher income becomes higher
 synthetic terrain; the rainbow runs blue to red, then dark crimson at the peaks.
+A separate DENSITY layer is a second synthetic terrain with its own contours:
+height follows log10 ONS population density (residents per square kilometre),
+bright blue lows are sparse and black peaks are crowded, with white contours. It never changes
+the income terrain; authority values are averages.
 No weather/disaster simulation is running yet. Do not claim that chat changes the
 map or that a hypothetical disaster actually happened. Never invent numerical
 observations, forecasts, casualties or damage. Explain what is unknown.

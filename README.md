@@ -1,7 +1,8 @@
 # Financial Forecast
 
-A UK income landscape with 2D contours, a 3D view and Capri as a chat companion.
-Heights describe gross disposable household income, not physical altitude.
+A UK income landscape with 2D contours, a 3D view, a population density layer
+and Capri as a chat companion. Heights describe gross disposable household
+income, not physical altitude.
 
 ## Run
 
@@ -25,7 +26,9 @@ uses WebGL for both map views. The first request compiles native code if needed;
 subsequent starts reuse generated terrain.
 
 Drag/arrow keys pan. In 3D, Shift-drag/right-drag or Shift-arrow rotates.
-Scroll/+/- zoom; two fingers pan/pinch; UK view/0 resets. With terrain off,
+Scroll/+/- zoom; two fingers pan/pinch; UK view/0 resets. **Map layer** picks
+TERRAIN (income heights), DENSITY (a second terrain from log₁₀ ONS residents
+per km², with its own contours, in 2D and 3D) or BORDERS. On BORDERS,
 hover an authority for a cyan glow, click to select it, then choose **Ask Capri
 to explain** in the side panel. That button submits a chat request about the
 selected authority; hovering does not call AI.

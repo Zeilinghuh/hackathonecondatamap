@@ -1,7 +1,7 @@
 """Small adapter between native terrain products and the web server.
 
 C++ owns data parsing/joining, geometry, RichDEM and JSON generation. This
-module compiles it, unpacks the two XLSX XML entries and caches HTTP bytes.
+module compiles it, unpacks the needed XLSX XML entries and caches HTTP bytes.
 """
 
 from __future__ import annotations
@@ -96,37 +96,46 @@ def ensure_native_binary() -> Path:
     return NATIVE_BINARY
 
 
-def unpack_income_xml(workbook_path: Path, output: Path) -> tuple[Path, Path]:
-    """Resolve the named tab, not internal sheet16.xml; C++ reads its records."""
+# Named workbook tabs the native pipeline reads, by output file stem.
+WORKBOOK_TABS = {"income": "16", "density": "3"}
+
+
+def unpack_workbook_xml(
+    workbook_path: Path, output: Path, tabs: dict[str, str] = WORKBOOK_TABS
+) -> tuple[Path, dict[str, Path]]:
+    """Resolve named tabs, not internal sheetN.xml files; C++ reads their records."""
     ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
     with zipfile.ZipFile(workbook_path) as workbook:
-        tabs = xml.fromstring(workbook.read("xl/workbook.xml"))
-        tab = next(
-            (
-                item
-                for item in tabs.findall(f".//{ns}sheet")
-                if item.get("name") == "16"
-            ),
-            None,
-        )
-        if tab is None:
-            raise ValueError("Income workbook tab 16 is missing.")
-        relation_id = tab.get(
-            "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
-        )
+        sheets = {
+            item.get("name"): item
+            for item in xml.fromstring(workbook.read("xl/workbook.xml")).findall(
+                f".//{ns}sheet"
+            )
+        }
         relations = xml.fromstring(workbook.read("xl/_rels/workbook.xml.rels"))
-        target = next(
-            item.get("Target") for item in relations if item.get("Id") == relation_id
-        )
-        sheet = (
-            target.lstrip("/")
-            if target.startswith("/")
-            else posixpath.normpath(posixpath.join("xl", target))
-        )
-        strings_path, sheet_path = output / "strings.xml", output / "income.xml"
+        strings_path = output / "strings.xml"
         strings_path.write_bytes(workbook.read("xl/sharedStrings.xml"))
-        sheet_path.write_bytes(workbook.read(sheet))
-    return strings_path, sheet_path
+        sheet_paths = {}
+        for stem, name in tabs.items():
+            tab = sheets.get(name)
+            if tab is None:
+                raise ValueError(f"Workbook tab {name} ({stem}) is missing.")
+            relation_id = tab.get(
+                "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+            )
+            target = next(
+                item.get("Target")
+                for item in relations
+                if item.get("Id") == relation_id
+            )
+            sheet = (
+                target.lstrip("/")
+                if target.startswith("/")
+                else posixpath.normpath(posixpath.join("xl", target))
+            )
+            sheet_paths[stem] = output / f"{stem}.xml"
+            sheet_paths[stem].write_bytes(workbook.read(sheet))
+    return strings_path, sheet_paths
 
 
 class TerrainStore:
@@ -143,7 +152,7 @@ class TerrainStore:
         self.build_root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=self.build_root) as directory:
             temporary = Path(directory)
-            strings, sheet = unpack_income_xml(WORKBOOK_PATH, temporary)
+            strings, sheets = unpack_workbook_xml(WORKBOOK_PATH, temporary)
             product, context = temporary / "terrain.json", temporary / "context.json"
             result = subprocess.run(
                 [
@@ -151,7 +160,8 @@ class TerrainStore:
                     "--build",
                     str(BOUNDARY_PATH),
                     str(strings),
-                    str(sheet),
+                    str(sheets["income"]),
+                    str(sheets["density"]),
                     str(product),
                     str(context),
                 ],
@@ -222,7 +232,14 @@ class TerrainStore:
         metadata = self._facts["metadata"]
         facts = {
             key: metadata[key]
-            for key in ("metric", "source_year", "method", "matched_authorities")
+            for key in (
+                "metric",
+                "source_year",
+                "method",
+                "matched_authorities",
+                "population_density",
+            )
+            if key in metadata
         }
         if isinstance(selected, str) and selected in self._facts["authorities"]:
             facts["selected_authority"] = self._facts["authorities"][selected]

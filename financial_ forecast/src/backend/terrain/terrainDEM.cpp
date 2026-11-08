@@ -35,7 +35,7 @@ double interpolate(double x, double y, const std::vector<Point>& points) {
     }
     return weighted / weights;
 }
-void writeDEM(std::ostream& out, const GridSpec& spec, const std::vector<Sample>& samples) {
+void writeDEM(std::ostream& out, const GridSpec& spec, const std::vector<Sample>& samples, const char* heightSource) {
     const int width = spec.width, height = spec.height;
     const auto [west, south, east, north] = spec.bounds;
     const auto count = samples.size();
@@ -60,13 +60,13 @@ void writeDEM(std::ostream& out, const GridSpec& spec, const std::vector<Sample>
     const double top = projectY(north), bottom = projectY(south);
     const double dx = (right - left) / (width - 1), dy = (top - bottom) / (height - 1);
     // RichDEM owns the elevation raster and its spatial metadata. Input values
-    // are synthetic economic heights, so analysis is not physical topography.
+    // are synthetic economic/demographic heights, so analysis is not physical topography.
     richdem::Array2D<double> grid(width, height);
     grid.setNoData(-9999);
     grid.projection = "EPSG:3857";
     grid.geotransform = {earthRadius * (left - dx / 2), earthRadius * dx, 0,
                          earthRadius * (top + dy / 2), 0, -earthRadius * dy};
-    grid.metadata["HEIGHT_SOURCE"] = "Income-derived synthetic elevation";
+    grid.metadata["HEIGHT_SOURCE"] = heightSource;
     for (int row = 0; row < height; ++row)
         for (int col = 0; col < width; ++col)
             grid(col, row) = maximum == minimum ? 500 : interpolate(left + col * dx, top - row * dy, points);

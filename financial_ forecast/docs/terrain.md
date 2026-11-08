@@ -8,7 +8,7 @@ http://127.0.0.1:8000. The root README includes uv commands.
 | Location | Owns |
 | --- | --- |
 | `src/backend/terrain/main.cpp` | Native command-line entry |
-| `src/backend/terrain/dataPipeline.cpp` | Income XML/GeoJSON parsing, matching, geometry and JSON output |
+| `src/backend/terrain/dataPipeline.cpp` | Income/density XML and GeoJSON parsing, matching, geometry and JSON output |
 | `src/backend/terrain/terrainDEM.cpp` | Interpolation, RichDEM raster/slopes and native contours |
 | `src/backend/terrain_service.py` | Compilation, XLSX ZIP unpacking, cache and response bytes |
 | `src/backend/server.py` | HTTP/static assets and chat routing |
@@ -26,9 +26,9 @@ are active adapters, not duplicate terrain implementations.
 
 ## Data pipeline
 
-The ZIP adapter resolves workbook tab **16** through workbook relationships and
-unpacks its worksheet and shared strings. C++ RapidXML parses the latest annual
-income column, keeps local-authority observations and normalizes names for the
+The ZIP adapter resolves workbook tabs **16** (income) and **3** (population
+density) through workbook relationships and unpacks those worksheets and the
+shared strings. C++ RapidXML parses each table's latest dated column, keeps local-authority observations and normalizes names for the
 planning-authority join. RapidJSON parses the boundary source. Both parsers are
 already included with vendored RichDEM and retain their licenses.
 
@@ -41,6 +41,15 @@ calculates synthetic slope. Native marching squares extracts 5-unit contours.
 The product represents 2024 gross disposable household income per head:
 361/382 planning authorities match. Missing special-authority income remains
 unshaded. Heights are an income metaphor, not physical altitude or wealth.
+
+Each feature also carries `population_density`: residents per km² at mid-2025
+from the same ONS workbook, joined by the same name match (361/382). C++ feeds
+log₁₀ density samples through the same `writeDEM` (interpolation, RichDEM grid
+and slope, 5-unit marching-squares contours) into a second product field,
+`density_dem`. Log scaling keeps the Highlands (8/km²) and inner London
+(16,906/km²) on one readable surface. `metadata.population_density.log10_range`
+maps height back: `log10(d) = low + height / 1000 × (high − low)`. Density
+never changes the income `dem`.
 No depression filling, hydrology or weather simulation modifies the surface.
 
 C++ writes the terrain JSON plus a small authority/context index. Python serves
@@ -71,7 +80,17 @@ The main range spans the DEM's 2nd–98th percentiles; the red tail reaches the
 actual maximum. The shader draws anti-aliased 5-unit isolines with heavier
 25-unit lines and screen-width scaling. Dense lines fade on steep slopes.
 
-With terrain off, cached boundary segments are drawn as instanced screen-width
+The **Map layer** switch picks TERRAIN, DENSITY or BORDERS. DENSITY behaves
+like the income terrain: its own mesh (sharing the index buffer), colour texture
+and the same contour shader, flat in 2D and raised in 3D. Its display
+exaggeration is lower (`DENSITY_HEIGHT_SCALE`) because log heights fill most of
+0–1000. Fills are constant between contour levels. Each band takes the class of
+its density: nine classes (breaks at 50, 100, 250, 500, 1k, 2.5k, 5k and
+10k per km²) on a bright blue → black ramp with steadily falling lightness.
+Density contours are always white; the lightest blue keeps about 3:1 contrast
+with them. Unmatched authorities stay slate grey.
+
+With BORDERS selected, cached boundary segments are drawn as instanced screen-width
 quads, so borders stay sharp at any zoom. A one-time expanded-buffer fallback
 supports browsers without instancing. Polygon highlight triangles are prepared
 once using locally vendored Earcut 3.0.2, including holes and disconnected

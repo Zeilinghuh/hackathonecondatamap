@@ -1,7 +1,8 @@
 // Picking and a small highlight state; frames only run while a glow is active.
 export class AreaInteraction {
-  constructor({canvas,index,renderer,getView,getMode,isTerrainVisible,isDragging,onChange,onSelect}) {
-    Object.assign(this,{canvas,index,renderer,getView,getMode,isTerrainVisible,isDragging,onChange,onSelect});
+  // getSurface(): "income" | "density" | null. Raised surfaces disable hover, like the terrain.
+  constructor({canvas,index,renderer,getView,getMode,getSurface,isDragging,onChange,onSelect,describe=properties=>properties.authority_name}) {
+    Object.assign(this,{canvas,index,renderer,getView,getMode,getSurface,isDragging,onChange,onSelect,describe});
     this.reducedMotion=matchMedia("(prefers-reduced-motion: reduce)");
     this.fading=[];
     this.label=document.querySelector("#hover-label");
@@ -18,19 +19,20 @@ export class AreaInteraction {
 
   invalidate() { this.dirty=true; this.onChange(); }
 
-  position(point,raised) {
-    return this.renderer.pick(point,this.getView(),raised,p=>this.index.find(p),this.getMode());
+  position(point,surface) {
+    return this.renderer.pick(point,this.getView(),surface,p=>this.index.find(p),this.getMode());
   }
 
   refresh(now) {
     if(!this.dirty)return;
     this.dirty=false;
-    if(this.isTerrainVisible() || this.isDragging()) {
+    if(this.getSurface() || this.isDragging()) {
       this.hover=null; this.fading=[]; this.updateLabel(); return;
     }
-    const position=this.point && this.position(this.point,false);
+    const position=this.point && this.position(this.point,null);
     const area=position && this.index.find(position);
-    if(area?.index===this.hover?.area.index || (!area&&!this.hover))return;
+    // Same area: the layer may have changed, so keep the label text current.
+    if(area?.index===this.hover?.area.index || (!area&&!this.hover)){this.updateLabel();return;}
     if(this.hover && !this.reducedMotion.matches) {
       this.fading.push({area:this.hover.area,opacity:this.opacity(now),leftAt:now});
       if(this.fading.length>4)this.fading.shift();
@@ -44,7 +46,8 @@ export class AreaInteraction {
     this.canvas.classList.toggle("is-over-area",!!area);
     this.canvas.dataset.hoveredArea=area?.feature.properties.authority_code || "";
     this.label.hidden=!area;
-    this.label.textContent=area?area.feature.properties.authority_name+" · Click to select":"";
+    const text=area?this.describe(area.feature.properties)+" · Click to select":"";
+    if(this.label.textContent!==text)this.label.textContent=text;
   }
 
   opacity(now) {
@@ -65,10 +68,10 @@ export class AreaInteraction {
     return [...active.values()];
   }
 
-  get animating() { return !this.isTerrainVisible() && ((this.hover&&!this.reducedMotion.matches)||this.fading.length>0); }
+  get animating() { return !this.getSurface() && ((this.hover&&!this.reducedMotion.matches)||this.fading.length>0); }
 
   select(point) {
-    const position=this.position(point,this.isTerrainVisible());
+    const position=this.position(point,this.getSurface());
     const area=position && this.index.find(position);
     if(!area)return;
     this.selected=area; this.onSelect(area,position); this.onChange();

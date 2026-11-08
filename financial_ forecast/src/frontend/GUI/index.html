@@ -20,29 +20,38 @@
         <p class="map-hint">Scroll to zoom · Drag to explore</p>
         <p id="hover-label" class="hover-label" hidden></p>
         <p id="view-status" class="view-status" role="status" hidden></p>
-        <div id="loading" class="loading">Generating terrain from local-authority income data…</div>
-        <div class="map-key" aria-label="Elevation colour scale">
+        <div id="loading" class="loading">Generating terrain from local-authority income and density data…</div>
+        <div class="map-key" id="terrain-key" aria-label="Elevation colour scale">
           <span id="legend-low">Lower terrain</span>
           <div class="gradient"></div>
           <span id="legend-high">Higher terrain</span>
+        </div>
+        <div class="map-key density-key" id="density-key" aria-label="Population density colour scale" hidden>
+          <span id="density-title" class="key-title">Residents per km²</span>
+          <ul id="density-classes" class="density-classes"></ul>
+          <span id="density-scale" class="key-scale">Log heights</span>
         </div>
       </section>
       <aside id="sidebar" class="controls-panel">
         <p class="eyebrow">UK // ECON TERRAIN</p>
         <h1>FINANCIAL<br>FORECAST</h1>
-        <p class="intro">Income per head shapes the terrain. Colour bands and contour lines show synthetic height, not geographic altitude.</p>
+        <p class="intro">Income per head shapes the terrain. Colour bands and contour lines show synthetic height, not geographic altitude. The density layer raises a second terrain from residents per km².</p>
 
         <div class="view-switch" role="group" aria-label="Map view">
           <button id="view-2d" aria-pressed="true" disabled>2D MAP</button>
           <button id="view-3d" aria-pressed="false" disabled>3D TERRAIN</button>
         </div>
 
-        <label class="switch-row" for="terrain-toggle">
-          <span>Terrain overlay</span>
-          <input id="terrain-toggle" type="checkbox" checked />
-        </label>
+        <div class="layer-row">
+          <span id="layer-label">Map layer</span>
+          <div class="layer-switch" role="group" aria-labelledby="layer-label">
+            <button data-layer="terrain" aria-pressed="true">TERRAIN</button>
+            <button data-layer="density" aria-pressed="false">DENSITY</button>
+            <button data-layer="borders" aria-pressed="false">BORDERS</button>
+          </div>
+        </div>
 
-        <p class="control-note">Blue lows → cyan → green → yellow → red → dark crimson peaks.</p>
+        <p id="control-note" class="control-note">Blue lows → cyan → green → yellow → red → dark crimson peaks.</p>
 
         <section class="details" aria-live="polite">
           <p class="details-label">Select an area</p>
@@ -50,6 +59,7 @@
           <dl id="area-stats">
             <div><dt>Elevation</dt><dd>—</dd></div>
             <div><dt>Income per head</dt><dd>—</dd></div>
+            <div><dt>Population density</dt><dd>—</dd></div>
           </dl>
           <button id="explain-area" class="explain-area" disabled>Ask Capri to explain</button>
         </section>
