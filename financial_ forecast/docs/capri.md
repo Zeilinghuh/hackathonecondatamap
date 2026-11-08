@@ -70,3 +70,5 @@ Tests (mocked provider, no paid requests):
 ```powershell
 python -m unittest discover -s tests/backend -p test_capri.py
 ```
+
+Requested app operations use validated control calls, including explicit recorded/simulation mode switching and visible scenario edits. Camera focus runs after the requested layer, year and mode are applied, with an eased pan/zoom to the actual raised 3D position. User input cancels a flight. Manual year scrubbing and scenario edits retarget the shared terrain animation. Apply was removed because scenario controls auto-apply.

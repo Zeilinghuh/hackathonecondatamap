@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -36,6 +37,14 @@ income layer, year 2030 and selection/focus of Kensington and Chelsea; it does
 not require a shock. Use the available authority names and ask if ambiguous.
 Select areas by local authority name; 'Barnet' is valid. For a historical
 year first disable simulation; for 2026–2035 enable it. Order actions accordingly.
+Whenever the user asks to see, run, switch, return to, or change app data, you MUST
+use control_app so it happens visually. Never substitute a table or chat values
+for the requested map operation. 'Recorded', 'historical', 'actual' and 'real data'
+mean set_simulation false; 'simulation', 'forecast' and 'future' mean true.
+'Run a simulation' means enable simulation and play_timeline. A specific future
+year means enable simulation, set the requested data layer/year, and select the
+area. Use current view_state to infer omitted settings and pronouns. A parameter
+edit uses set_shock or set_rate, not a made-up projected value in chat.
 A set_shock target can be 'selected', a name, or omitted for all modelled areas.
 Do not claim a change happened before execution; the app reports actual results.
 Never invent data or state. General conversation does not require an action.
@@ -266,7 +275,14 @@ class CapriService:
                 + history
                 + [{"role": "user", "content": message}],
                 "tools": [APP_TOOL],
-                "tool_choice": "auto",
+                "tool_choice": "required"
+                if re.search(
+                    r"\b(?:show|find|select|focus|zoom|pan|switch|swap|return|run|simulate|forecast|visuali[sz]e|enable|disable|change|set|increase|decrease|play|pause|reset|back to)\b",
+                    message,
+                    re.I,
+                )
+                and not re.search(r"\b(?:don't|do not|never)\b", message, re.I)
+                else "auto",
                 "temperature": 0.2,
                 "max_tokens": 4096,
                 "stream": False,

@@ -1,5 +1,5 @@
 import { constrainView, constrain3DView } from "./mapbounds.js";
-import { mercator } from "./terrainmath.js";
+import { mercator, latitudeAt } from "./terrainmath.js";
 
 // All input, camera bounds and resizing live here; renderers only draw a view.
 export class MapNavigation {
@@ -21,6 +21,7 @@ export class MapNavigation {
     listen("contextmenu", event => event.preventDefault());
     listen("pointerdown", event => {
       if (event.button !== 0 || this.pointers.size >= 2) return;
+      this.cancelFocus();
       event.currentTarget.focus({preventScroll:true});
       event.currentTarget.setPointerCapture(event.pointerId);
       const next = point(event);
@@ -63,6 +64,7 @@ export class MapNavigation {
       const shift = {ArrowLeft:[70,0],ArrowRight:[-70,0],ArrowUp:[0,70],ArrowDown:[0,-70]}[event.key];
       if (!["+","=","-","0"].includes(event.key) && !shift) return;
       event.preventDefault();
+      this.cancelFocus();
       if (event.key === "+" || event.key === "=") this.zoom(1.4);
       if (event.key === "-") this.zoom(1/1.4);
       if (event.key === "0") { this.rotate(0,0,true); this.resize(true); }
@@ -94,6 +96,7 @@ export class MapNavigation {
   }
 
   setMode(mode) {
+    this.cancelFocus();
     this.mode = mode;
     this.pointers.clear(); this.pinch = null;
     this.canvases.forEach(canvas => canvas.classList.remove("dragging"));
@@ -103,6 +106,7 @@ export class MapNavigation {
 
   resize(reset = false, resizeBuffer = true) {
     const {width,height} = this.panel.getBoundingClientRect(), previous = this.view;
+    if(reset || previous && (previous.width!==width || previous.height!==height))this.cancelFocus();
     const ratio = Math.min(2,window.devicePixelRatio || 1);
     let changed=false;
     if(resizeBuffer)for(const canvas of this.canvases) {
@@ -122,11 +126,12 @@ export class MapNavigation {
       const lat = previous.north-(previous.height/2-previous.offsetY)/previous.scale;
       offsetX = width/2-(lon-west)*scale; offsetY = height/2-(top-lat)*scale;
     }
-    this.view = {width,height,west,north:top,fitScale,scale,zoom,offsetX,offsetY};
+    this.view = {width,height,west,north:top,fitScale,scale,zoom,offsetX,offsetY,focusHeight:reset?0:previous?.focusHeight||0};
     this.changed();
   }
 
   zoom(factor, anchor) {
+    this.cancelFocus();
     const view = this.view;
     if (!anchor || this.mode === "3d") anchor = {x:view.width/2,y:view.height/2};
     const zoom = Math.max(1,Math.min(12,view.zoom*factor)), ratio = zoom/view.zoom;
@@ -136,13 +141,38 @@ export class MapNavigation {
     this.changed();
   }
 
-  focus(bounds) {
+  cancelFocus() {
+    const flight=this.flight;if(!flight)return;
+    this.flight=null;cancelAnimationFrame(flight.raf);flight.resolve();
+  }
+
+  focus(bounds,position,project) {
+    this.cancelFocus();
     const view=this.view,[west,south,east,north]=bounds;
-    const scale=Math.min(view.width*.55/Math.max(.15,east-west),view.height*.55/Math.max(.15,north-south));
-    view.zoom=Math.max(1,Math.min(12,scale/view.fitScale));view.scale=view.fitScale*view.zoom;
-    view.offsetX=view.width/2-((west+east)/2-view.west)*view.scale;
-    view.offsetY=view.height/2-(view.north-(south+north)/2)*view.scale;
-    this.changed();
+    const [lon,lat]=position||[(west+east)/2,latitudeAt((south+north)/2)];
+    const target={...view},scale=Math.min(view.width*.55/Math.max(.15,east-west),view.height*.55/Math.max(.15,north-south));
+    target.zoom=Math.max(1,Math.min(12,scale/view.fitScale));target.scale=view.fitScale*target.zoom;
+    target.offsetX=view.width/2-(lon-view.west)*target.scale;
+    target.offsetY=view.height/2-(view.north-mercator(lat))*target.scale;
+    target.focusHeight=this.mode==='3d'&&project?project([lon,lat],target).height||0:0;
+    const constrain=this.mode==='3d'?constrain3DView:constrainView;constrain(target,this.bounds);
+    const centre=v=>[(v.width/2-v.offsetX)/v.scale+v.west,v.north-(v.height/2-v.offsetY)/v.scale];
+    const from=centre(view),to=centre(target),zoom=view.zoom,height=view.focusHeight||0,start=performance.now();
+    const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:850;
+    return new Promise(resolve=>{
+      const flight=this.flight={resolve};
+      const step=now=>{
+        if(this.flight!==flight)return;
+        const t=duration?Math.min(1,(now-start)/duration):1,e=t*t*(3-2*t);
+        view.zoom=zoom*(target.zoom/zoom)**e;view.scale=view.fitScale*view.zoom;
+        view.focusHeight=height+(target.focusHeight-height)*e;
+        view.offsetX=view.width/2-(from[0]+(to[0]-from[0])*e-view.west)*view.scale;
+        view.offsetY=view.height/2-(view.north-from[1]-(to[1]-from[1])*e)*view.scale;
+        this.changed();
+        if(t<1)flight.raf=requestAnimationFrame(step);else{this.flight=null;resolve();}
+      };
+      flight.raf=requestAnimationFrame(step);
+    });
   }
 
   pan(dx,dy) {

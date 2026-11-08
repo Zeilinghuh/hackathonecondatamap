@@ -34,7 +34,7 @@ export class Forecast {
         <div class="simulation-sliders">${Object.entries(VARIABLES).map(([v,label])=>`<label>${label}<output data-output="${v}">0</output><input aria-label="${label} growth shock" data-shock="${v}" type="range" min="-3" max="3" step="0.25" value="0"></label>`).join('')}</div>
         <label class="simulation-rate">Rate stance <output id="rate-output">0</output><input id="rate-bias" aria-label="Rate stance" type="range" min="-1" max="1" step="0.1" value="0"></label>
         <p class="simulation-help">Growth shocks use standard deviations (−3 to +3), fading each year. Foreign investment applies to the whole region; rate stance is national.</p>
-        <button id="simulation-apply">Apply edits</button> <button id="simulation-reset">Reset all edits</button>
+        <button id="simulation-reset">Reset all edits</button>
         <details><summary>Model and coverage</summary><p id="simulation-model"></p><p id="simulation-coverage"></p></details>
       </div>
     </section>`;
@@ -49,7 +49,6 @@ export class Forecast {
       this.syncSliders();this.schedule();
     });
     mount.querySelector('#simulation-reset').addEventListener('click',()=>this.reset().catch(()=>{}));
-    mount.querySelector('#simulation-apply').addEventListener('click',()=>this.reload().catch(()=>{}));
     for(const button of document.querySelectorAll('[data-forecast-overlay]'))button.addEventListener('click',()=>this.setOverlay(button.dataset.forecastOverlay,!this.overlays.has(button.dataset.forecastOverlay)).catch(()=>{}));
     this.canvas=document.createElement('canvas');this.canvas.className='forecast-weather';this.canvas.setAttribute('aria-hidden','true');document.querySelector('.map-panel').append(this.canvas);
     const key=document.createElement('div');key.id='forecast-key';key.className='map-key compact-key';key.hidden=true;document.querySelector('.legend-stack').append(key);this.key=key;

@@ -248,8 +248,10 @@ export class TerrainTexture {
   elevationAt(longitude, latitude, dem = this.dem) {
     const [west, south, east, north] = dem.bounds;
     if (longitude < west || longitude > east || latitude < south || latitude > north) return null;
-    const col = Math.round((longitude - west) / (east - west) * (dem.width - 1));
-    const row = Math.round((mercator(north) - mercator(latitude)) / (mercator(north) - mercator(south)) * (dem.height - 1));
-    return dem.values[row * dem.width + col];
+    const col=(longitude-west)/(east-west)*(dem.width-1),row=(mercator(north)-mercator(latitude))/(mercator(north)-mercator(south))*(dem.height-1);
+    const c=Math.min(dem.width-2,Math.floor(col)),r=Math.min(dem.height-2,Math.floor(row)),x=col-c,y=row-r,i=r*dem.width+c;
+    const [a,b,d,e]=[dem.values[i],dem.values[i+1],dem.values[i+dem.width],dem.values[i+dem.width+1]];
+    // Match the two GPU triangles, including the height used for 3D centring.
+    return x+y<=1?a*(1-x-y)+b*x+d*y:e*(x+y-1)+b*(1-y)+d*(1-x);
   }
 }

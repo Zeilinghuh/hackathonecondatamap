@@ -202,7 +202,7 @@ export class TerrainRenderer {
   }
 
   camera(view,mode="3d") {
-    const centre = [(view.width/2 - view.offsetX)/view.scale + view.west, 0,
+    const centre = [(view.width/2 - view.offsetX)/view.scale + view.west, mode==='3d'?(view.focusHeight||0):0,
       view.north - (view.height/2 - view.offsetY)/view.scale];
     const basis = mode === "2d" ? cameraBasis(0,0) : cameraBasis(this.yaw, this.tilt);
     const x = 2*view.scale/view.width, y = 2*view.scale/view.height, z = -.01;
@@ -222,16 +222,32 @@ export class TerrainRenderer {
     const x=lon,z=Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))*180/Math.PI;
     const y=mode==='3d'&&dem?(this.textureSource.elevationAt(lon,lat,dem)??0)*(surface==='income'?HEIGHT_SCALE:DENSITY_HEIGHT_SCALE):0;
     const a=matrix[0]*x+matrix[4]*y+matrix[8]*z+matrix[12],b=matrix[1]*x+matrix[5]*y+matrix[9]*z+matrix[13];
-    return {x:(a+1)*view.width/2,y:(1-b)*view.height/2};
+    return {x:(a+1)*view.width/2,y:(1-b)*view.height/2,height:y};
   }
 
   beginTransition(name) {
-    this.endTransition();
     const gl=this.gl;if(gl.isContextLost() || !this.meshes[name])return;
+    const previous=this.transition,continuing=previous?.name===name;
+    let vertices=this.meshes[name].vertices,dem={income:this.textureSource.dem,density:this.textureSource.densityDem,employment:this.textureSource.employmentDem}[name];
+    const canvases=[name==='employment'?this.textureSource.employmentTerrain:name==='density'?this.textureSource.densityTerrain:this.textureSource.terrain,name==='employment'?this.textureSource.employmentMatched:this.textureSource.matched];
+    const sources=this.transitionSources??=canvases.map(()=>document.createElement('canvas'));
+    const t=continuing?Math.min(1,(performance.now()-previous.start)/550):1,blend=t*t*(3-2*t);
+    if(continuing){
+      vertices=vertices.slice();
+      for(let i=0;i<vertices.length;i+=8)for(let j=0;j<6;j++)vertices[i+j]=previous.vertices[i+j]+(vertices[i+j]-previous.vertices[i+j])*blend;
+      dem={...dem,values:Float64Array.from(dem.values,(value,i)=>previous.dem.values[i]+(value-previous.dem.values[i])*blend)};
+    }
+    sources.forEach((canvas,i)=>{
+      const source=canvases[i],context=canvas.getContext('2d');
+      if(!continuing){canvas.width=source.width;canvas.height=source.height;context.drawImage(source,0,0);}
+      else if(i===0){context.globalAlpha=blend;context.drawImage(source,0,0);context.globalAlpha=1;}
+      else{context.globalCompositeOperation='destination-in';context.globalAlpha=1-blend;context.fillStyle='white';context.fillRect(0,0,canvas.width,canvas.height);context.globalCompositeOperation='lighter';context.globalAlpha=blend;context.drawImage(source,0,0);context.globalAlpha=1;context.globalCompositeOperation='source-over';}
+    });
+    this.endTransition();
     const indices=[{income:1,density:3,employment:5}[name],name==="employment"?6:2];
     const old=indices.map(index=>this.textures[index]);
-    this.transition={name,start:performance.now(),buffer:uploadBuffer(gl,gl.ARRAY_BUFFER,this.meshes[name].vertices),textures:old,
-      vertices:this.meshes[name].vertices,dem:name==="employment"?this.textureSource.employmentDem:null,blend:0};
+    if(continuing)old.forEach((texture,i)=>this.uploadTexture(texture,sources[i]));
+    this.transition={name,start:performance.now(),buffer:uploadBuffer(gl,gl.ARRAY_BUFFER,vertices),textures:old,vertices,dem,blend:0};
     indices.forEach((index,i)=>{this.textures[index]=this.spareTextures?.[i] || this.createTexture();});
     this.spareTextures=null;
   }

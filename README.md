@@ -61,8 +61,8 @@ Use **Data year** to drag, scroll or step through the available observations;
 **Play** advances one year at a time.
 During Play, each step blends the terrain heights, lighting, colours and contours
 over 550 ms within the 650 ms year interval. These intermediate shapes are visual
-interpolations, not extra observations. Manual year selection and Pause settle on
-the recorded frame immediately; reduced-motion mode keeps discrete steps.
+interpolations, not extra observations. Manual year selection morphs between displayed frames; Pause settles on
+the selected frame immediately; reduced-motion mode keeps discrete steps.
 Income covers 1997–2024 and population density 1991–2025. Employment covers 2004–2023. Business failure is a fixed 2024 overlay and does not change with the year slider. The sea grid is visible in both 2D and 3D. History loads once in the background and is cached. Height/colour
 scales stay fixed across years. Missing values remain unshaded; income is
 nominal (not inflation-adjusted) and all years use the current map boundaries.
@@ -75,8 +75,7 @@ playback. **Return to recorded data** restores the previous recorded year for
 each layer. Recorded observations are never overwritten by scenarios.
 
 Edit growth shocks for all modelled areas, or choose an authority in **Edit**.
-Edits apply automatically after a short pause; **Apply edits** retries a failed
-request. Income, density and employment alter both the contours and 3D heights.
+Edits apply automatically after a short pause. Income, density and employment alter both the contours and 3D heights.
 Business failure alters the closure overlay; **Weekly pay** adds blue rain,
 **Foreign investment** adds regional arrow concentrations, and **Rate signal** shows model
 output in the legend stack. **Reset all edits** restores the baseline scenario.
@@ -163,3 +162,5 @@ node --test tests/frontend/*.test.mjs
 ```
 
 Node is only needed for the frontend tests. Chat tests mock the provider.
+
+Capri drives map controls for recorded/simulation switching, scenarios and playback. Area requests use a smooth camera flight, centred on the displayed terrain height in 3D. Manual year scrubbing also morphs the shared contour surface; rapid input reuses and retargets the active transition. Reduced-motion preferences keep camera and terrain changes immediate.
