@@ -86,6 +86,7 @@ export class CapriCompanion {
     });
     document.addEventListener("terrain:selection", event => {
       this.selectedAuthority = event.detail.authorityCode;
+      this.selectedYear = event.detail.year;
       this.chat.querySelector("#capri-context").textContent = `Context: ${event.detail.authorityName}`;
     });
     new ResizeObserver(() => this.place()).observe(mapPanel);
@@ -240,7 +241,7 @@ export class CapriCompanion {
     try {
       const response = await fetch("/api/capri/chat", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({message, history:this.history.slice(-8), selected_authority:this.selectedAuthority}),
+        body:JSON.stringify({message, history:this.history.slice(-8), selected_authority:this.selectedAuthority, selected_year:this.selectedYear}),
         signal:AbortSignal.timeout(35000),
       });
       const result = await response.json();

@@ -8,6 +8,8 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <iomanip>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -28,7 +30,8 @@ using Writer = rapidjson::Writer<Buffer>;
 using Node = rapidxml::xml_node<>;
 using XY = std::array<double, 2>;
 // One workbook table: its latest dated column, keyed by normalized authority name.
-struct Table { std::map<std::string, double> values; std::string year; };
+struct Table { std::map<std::string, double> values; std::string year;
+    std::map<std::string,std::map<std::string,double>> history; };
 
 std::vector<char> readChars(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -101,6 +104,7 @@ Table readTable(const std::filesystem::path& stringsPath, const std::filesystem:
     Table result;
     std::string latest;
     int valueColumn = -1;
+    std::map<std::string,std::pair<std::string,int>> columns;
     for (auto* row = rows->first_node(); row; row = row->next_sibling()) {
         std::map<int, std::string> cells;
         for (auto* cell = row->first_node(); cell; cell = cell->next_sibling()) {
@@ -126,15 +130,23 @@ Table readTable(const std::filesystem::path& stringsPath, const std::filesystem:
         if (valueColumn < 0) {
             if (cells[0] != "Area code" || cells[1] != "Area name") continue;
             // Headers start with an ISO date: "2024-01-01/P1Y (...)" or "2025-06-30 (Persons)".
-            for (const auto& [column, heading] : cells)
+            for (const auto& [column, heading] : cells) {
                 if (column >= 2 && heading.size() >= 10 && heading[4] == '-' && heading[7] == '-' &&
                     std::all_of(heading.begin(), heading.begin()+4, [](char c) { return c >= '0' && c <= '9'; }) &&
-                    heading.substr(0,10) > latest) { valueColumn = column; latest = heading.substr(0,10); }
+                    !heading.empty()) {
+                    const auto year=heading.substr(0,4), date=heading.substr(0,10);
+                    if (!columns.count(year) || date>columns[year].first) columns[year]={date,column};
+                    if(date>latest) { valueColumn=column; latest=date; }
+                }
+            }
             if (valueColumn < 0) throw std::runtime_error(std::string("No dated column in ") + label + ".");
             result.year = latest.substr(0,4);
             continue;
         }
         if (!localAuthority(cells[0]) || cells[1].empty()) continue;
+        for (const auto& [year, entry] : columns) {
+            if (const auto v=number(cells[entry.second])) result.history[year][normalized(cells[1])]=*v;
+        }
         const auto value = number(cells[valueColumn]);
         if (!value) continue;
         const auto name = normalized(cells[1]);
@@ -302,6 +314,55 @@ void writeSimplifiedGeometry(std::istream& input, std::ostream& out) {
     rapidjson::Document document; document.Parse<0>(data.c_str());
     if (document.HasParseError()) throw std::runtime_error("Invalid geometry JSON.");
     Buffer buffer; Writer writer(buffer,9); geometry(writer,document); out << buffer.GetString();
+}
+
+void buildHistory(const std::filesystem::path& boundaries, const std::filesystem::path& sharedStrings,
+                  const std::filesystem::path& incomeSheet, const std::filesystem::path& densitySheet,
+                  const std::filesystem::path& output, const std::filesystem::path& context) {
+    const auto income=readTable(sharedStrings,incomeSheet,"income"), density=readTable(sharedStrings,densitySheet,"density");
+    auto source=readChars(boundaries);
+    rapidjson::Document doc; doc.ParseInsitu<0>(source.data());
+    if(doc.HasParseError()) throw std::runtime_error("Invalid boundaries.");
+    const auto& features=field(doc,"features");
+    struct Location {std::string code,name; double lon,lat;};
+    std::vector<Location> locations;
+    for(rapidjson::SizeType i=0;i<features.Size();++i) {
+        const auto& p=field(features[i],"properties");
+        locations.push_back({stringField(p,"LPA26CD"),normalized(stringField(p,"LPA26NM")),numericField(p,"LONG"),numericField(p,"LAT")});
+    }
+    std::ofstream out(output); out.exceptions(std::ios::badbit|std::ios::failbit);
+    Buffer facts; Writer f(facts,9); f.StartObject(); out << '{';
+    bool first=true;
+    for(const auto& [name,table] : std::vector<std::pair<std::string,const Table*>>{{"income",&income},{"density",&density}}) {
+        double low=std::numeric_limits<double>::infinity(), high=-low;
+        for(const auto& [year,values] : table->history) for(const auto& place:locations) {
+            const auto v=values.find(place.name);
+            if(v==values.end() || (name=="density" && v->second<1))continue;
+            const double value=name=="density"?std::log10(v->second):v->second;
+            low=std::min(low,value);high=std::max(high,value);
+        }
+        if(!std::isfinite(low)) throw std::runtime_error("No historical observations.");
+        if(!first)out << ',';first=false;
+        out << '"' << name << "\":{\"range\":[" << std::setprecision(12) << low << ',' << high << "],\"frames\":[";
+        key(f,name.c_str()); f.StartObject(); bool firstYear=true;
+        for(const auto& [year,values] : table->history) {
+            std::vector<Sample> samples; Buffer observations; Writer w(observations,9); w.StartObject();
+            for(const auto& place:locations) {
+                const auto value=values.find(place.name);
+                if(value==values.end() || (name=="density" && value->second<1))continue;
+                text(w,place.code);w.Double(value->second);
+                samples.push_back({place.lon,place.lat,name=="density"?std::log10(value->second):value->second});
+            }
+            w.EndObject(); if(samples.empty())continue;
+            if(!firstYear)out << ',';firstYear=false;
+            out << "{\"year\":\"" << year << "\",\"observations\":" << observations.GetString() << ",\"values\":";
+            GridSpec spec; spec.valueRange=std::array<double,2>{low,high};spec.valuesOnly=true;
+            writeDEM(out,spec,samples); out << '}';
+            text(f,year); rapidjson::Document valuesDoc; valuesDoc.Parse<0>(observations.GetString());valuesDoc.Accept(f);
+        }
+        out << "]}";f.EndObject();
+    }
+    out << '}'; f.EndObject();std::ofstream factsOut(context);factsOut.exceptions(std::ios::badbit|std::ios::failbit);factsOut << facts.GetString();
 }
 
 void buildProduct(const std::filesystem::path& boundaries, const std::filesystem::path& sharedStrings,

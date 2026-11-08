@@ -73,9 +73,13 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
             return
-        if route == "/api/terrain":
+        if route in {"/api/terrain", "/api/history"}:
             try:
-                content, compressed, etag = TERRAIN.response()
+                content, compressed, etag = (
+                    TERRAIN.history_response()
+                    if route == "/api/history"
+                    else TERRAIN.response()
+                )
                 unchanged = self.headers.get("If-None-Match") == etag
                 encodings = self.headers.get("Accept-Encoding", "").lower()
                 use_gzip = any(
@@ -140,7 +144,12 @@ class TerrainRequestHandler(SimpleHTTPRequestHandler):
             payload = json.loads(self.rfile.read(size))
             CAPRI.validate(payload)
             self.send_json(
-                CAPRI.reply(payload, TERRAIN.context(payload.get("selected_authority")))
+                CAPRI.reply(
+                    payload,
+                    TERRAIN.context(
+                        payload.get("selected_authority"), payload.get("selected_year")
+                    ),
+                )
             )
         except CapriError as error:
             self.send_json({"error": str(error)}, HTTPStatus(error.status))
@@ -185,7 +194,10 @@ def main() -> None:
     try:
         server = LocalHTTPServer(("127.0.0.1", args.port), TerrainRequestHandler)
     except OSError:
-        parser.exit(1, f"Could not open port {args.port}. Stop the running map server first, or choose another --port.\n")
+        parser.exit(
+            1,
+            f"Could not open port {args.port}. Stop the running map server first, or choose another --port.\n",
+        )
     print(f"Terrain map available at http://127.0.0.1:{args.port}")
     try:
         server.serve_forever()

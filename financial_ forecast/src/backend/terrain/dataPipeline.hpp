@@ -3,6 +3,9 @@
 #include <iosfwd>
 
 namespace terrain {
+void buildHistory(const std::filesystem::path&, const std::filesystem::path&,
+                  const std::filesystem::path&, const std::filesystem::path&,
+                  const std::filesystem::path&, const std::filesystem::path&);
 void buildProduct(const std::filesystem::path& boundaries,
                   const std::filesystem::path& sharedStrings,
                   const std::filesystem::path& incomeSheet,

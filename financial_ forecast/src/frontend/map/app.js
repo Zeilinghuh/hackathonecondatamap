@@ -5,12 +5,13 @@ import { AreaInteraction } from "./areainteraction.js";
 import { MapNavigation } from "./mapnavigation.js";
 import { TerrainControls, formatDensity } from "../GUI/terraincontrols.js";
 import { CapriCompanion } from "../GUI/capri.js";
+import { Timeline } from "../GUI/timeline.js";
 
 const canvas=document.querySelector("#map"), panel=document.querySelector(".map-panel");
 const loading=document.querySelector("#loading"), explain=document.querySelector("#explain-area");
-let texture,renderer,navigation,interaction,selection,selectedPosition,framePending=false;
+let texture,renderer,navigation,interaction,selection,selectedPosition,timeline,terrainData,framePending=false;
 const controls=new TerrainControls({
-  onChange:()=>{interaction?.invalidate();if(selection)showArea(selection,selectedPosition);requestDraw();},
+  onChange:()=>{timeline?.useSurface();interaction?.invalidate();if(selection)showArea(selection,selectedPosition);requestDraw();},
   onZoom:factor=>navigation?.zoom(factor),
   onReset:()=>{renderer?.reset();navigation?.resize(true);},
   onMode:mode=>{if(!navigation)return;navigation.setMode(mode);controls.setMode(mode);},
@@ -36,7 +37,7 @@ function showArea(area,position) {
   selection=area;selectedPosition=position;
   const {authority_name:name,income_per_head:income,population_density:density,authority_code:code}=area.feature.properties;
   document.querySelector("#area-name").textContent=name;
-  document.dispatchEvent(new CustomEvent("terrain:selection",{detail:{authorityCode:code,authorityName:name}}));
+  document.dispatchEvent(new CustomEvent("terrain:selection",{detail:{authorityCode:code,authorityName:name,year:timeline?.year}}));
   explain.disabled=capri.busy;
   const stats=document.querySelector("#area-stats");
   // Height of the surface being shown: density terrain on DENSITY, income terrain otherwise.
@@ -53,11 +54,31 @@ function showArea(area,position) {
   }));
 }
 
+function applyFrame(name,frame,series) {
+  const year=frame.year;
+  const observationsBySurface=Object.fromEntries(Object.entries(timeline.data).map(([key,value])=>[key,value.frames.find(item=>item.year===year)?.observations]));
+  for(const feature of terrainData.features) {
+    for(const [surface,field] of [["income","income_per_head"],["density","population_density"]]) {
+      const observations=observationsBySurface[surface];
+      feature.properties[field]=observations?.[feature.properties.authority_code]??null;
+    }
+  }
+  const dem=texture.updateFrame(name,frame,series.range,terrainData.features,series.frames.at(-1));
+  renderer.updateFrame(name,dem);
+  controls.setLegend(texture.colourRange,texture.peakHeight);
+  if(name==="density")controls.setDensitySource({...terrainData.metadata.population_density,source_year:year,log10_range:series.range});
+  capri.selectedYear=year;
+  document.querySelector("#source-note").textContent=(name==="income"?"Income per head":"Population density")+", "+year+" · "+Object.keys(frame.observations).length+" authorities matched. Current boundaries; missing data stays unshaded.";
+  if(selection)showArea(selection,selectedPosition);
+  interaction.invalidate();requestDraw();
+}
+
 async function initialise() {
   try {
     const response=await fetch("/api/terrain");
     if(!response.ok)throw new Error("Terrain API returned "+response.status);
     const terrain=await response.json(), areas=new AreaIndex(terrain.features);
+    terrainData=terrain;
     texture=new TerrainTexture(terrain,areas);
     renderer=new TerrainRenderer(canvas,{income:terrain.dem,density:terrain.density_dem},texture,areas,{
       onUnavailable:()=>{loading.textContent="Restoring map graphics…";loading.classList.remove("hidden");},
@@ -84,6 +105,7 @@ async function initialise() {
       terrain.metadata.matched_authorities+" of "+terrain.features.length+" planning authorities matched; special authorities remain unshaded."+
       (density?" Population density (ONS, mid-"+density.source_year+"): "+density.matched_authorities+" matched.":"");
     draw();loading.classList.add("hidden");
+    timeline=new Timeline(()=>controls.surface,applyFrame);
   } catch(error){loading.textContent="Could not load the map: "+error.message;}
 }
 initialise();

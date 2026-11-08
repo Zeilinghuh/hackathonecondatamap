@@ -33,6 +33,12 @@ hover an authority for a cyan glow, click to select it, then choose **Ask Capri
 to explain** in the side panel. That button submits a chat request about the
 selected authority; hovering does not call AI.
 
+Use **Data year** to drag, scroll or step through the available observations;
+**Play** advances one year at a time. Income covers 1997–2024 and density
+1991–2025. History loads once in the background and is cached. Height/colour
+scales stay fixed across years. Missing values remain unshaded; income is
+nominal (not inflation-adjusted) and all years use the current map boundaries.
+
 ## Layout
 
 ```text
