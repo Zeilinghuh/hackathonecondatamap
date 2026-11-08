@@ -27,6 +27,7 @@ uniform float contoursOn;
 uniform float contourInterval;
 uniform float pixelRatio;
 uniform float densitySurface;
+uniform float vegetationBase;
 varying vec2 textureUV;
 varying float light;
 varying float heightValue;
@@ -42,7 +43,7 @@ float contour(float interval, float width) {
 void main() {
   vec4 colour = texture2D(surface, textureUV);
   if (colour.a < .5) discard;
-  vec3 shaded = colour.rgb * light;
+  vec3 shaded = mix(colour.rgb * light,vec3(.91,.95,.92),vegetationBase);
   // White density contours are quieter between bold lines so the blue stays legible.
   float minor = contour(contourInterval,.45)*mix(.62,.3,densitySurface);
   float major = contour(contourInterval*5.0,.75)*.86;
@@ -95,6 +96,7 @@ export class TerrainRenderer {
     this.contoursLocation = gl.getUniformLocation(this.program,"contoursOn");
     this.ratioLocation = gl.getUniformLocation(this.program, "pixelRatio");
     this.densityLocation = gl.getUniformLocation(this.program, "densitySurface");
+    this.vegetationLocation = gl.getUniformLocation(this.program, "vegetationBase");
     this.heightScaleLocation = gl.getUniformLocation(this.program, "heightScale");
     gl.uniform1f(gl.getUniformLocation(this.program,"contourInterval"),this.dem.contour_interval || 5);
     gl.uniform1i(gl.getUniformLocation(this.program, "surface"), 0);
@@ -124,6 +126,17 @@ export class TerrainRenderer {
     gl.enable(gl.DEPTH_TEST);
     gl.clearColor(11/255,16/255,24/255,1);
     this.areaLayer = new AreaLayer(gl,this.areas);
+    if(this.vegetationData) {
+      const {observations,palette,missing}=this.vegetationData;
+      this.areaLayer.setVegetation(observations,palette,missing);
+    }
+  }
+
+  setVegetation(observations,palette,missing) {
+    this.vegetationData={observations,palette,missing};
+    if(!this.gl.isContextLost())this.areaLayer.setVegetation(observations,palette,missing);
+    this.canvas.dataset.vegetationColouredAreas=String(this.areas.areas.filter(area=>
+      Number.isFinite(observations[area.feature.properties.authority_code])).length);
   }
 
   camera(view,mode="3d") {
@@ -162,7 +175,7 @@ export class TerrainRenderer {
     }
   }
 
-  draw(view, surface, mode="2d", highlights=[]) {
+  draw(view, surface, mode="2d", highlights=[], vegetation=false) {
     const gl = this.gl;
     if (gl.isContextLost()) return;
     surface = this.surfaceOf(surface);
@@ -174,18 +187,21 @@ export class TerrainRenderer {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    if(vegetation)gl.clearColor(.86,.94,.99,1);
+    else gl.clearColor(11/255,16/255,24/255,1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const matrix = this.camera(view,mode).matrix;
     gl.uniformMatrix4fv(this.cameraLocation, false, matrix);
     gl.uniform1f(this.raisedLocation, surface && mode === "3d" ? 1 : 0);
     gl.uniform1f(this.contoursLocation,surface ? 1 : 0);
     gl.uniform1f(this.densityLocation,surface === "density" ? 1 : 0);
+    gl.uniform1f(this.vegetationLocation,vegetation?1:0);
     gl.uniform1f(this.heightScaleLocation,surface === "density" ? DENSITY_HEIGHT_SCALE : HEIGHT_SCALE);
     gl.uniform1f(this.ratioLocation,this.canvas.width/view.width);
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D, this.textures[{income: 1, density: 3}[surface] ?? 0]);
     gl.drawElements(gl.TRIANGLES, this.meshes.income.indices.length, gl.UNSIGNED_SHORT, 0);
-    if (!surface) this.areaLayer.draw(matrix,view,highlights);
+    if (!surface) this.areaLayer.draw(matrix,view,highlights,vegetation);
   }
 
   pan(view, dx, dy) {

@@ -1,0 +1,64 @@
+/* The map palette and the small CSS trees share this stylesheet. */
+.map-panel {
+  --vegetation-colour-0:#edf6dd;
+  --vegetation-colour-1:#c6e4ab;
+  --vegetation-colour-2:#91ca80;
+  --vegetation-colour-3:#53a661;
+  --vegetation-colour-4:#247349;
+  --vegetation-no-data:#dce4e8;
+}
+.vegetation-overlay { position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; contain:layout paint; }
+.vegetation-plant {
+  --leaf:#71b87d; --leaf-light:#b9df9d; --leaf-dark:#367f62;
+  position:absolute; left:0; top:0; width:24px; height:32px;
+  transform-origin:50% 100%; opacity:var(--plant-opacity,1);
+  transition:none;
+}
+.vegetation-plant::before {
+  content:""; position:absolute; bottom:0; left:11px; width:3px; height:21px;
+  border-radius:2px; background:linear-gradient(90deg,#64724e,#a6a36c);
+  transform:scaleY(var(--growth,1)); transform-origin:50% 100%;
+  transition:transform 650ms ease;
+}
+.vegetation-plant::after {
+  content:""; position:absolute; bottom:-2px; left:3px; width:19px; height:5px;
+  border-radius:50%; background:#1c4c3526;
+}
+.vegetation-crown {
+  position:absolute; z-index:1; left:3px; bottom:11px; width:20px; height:23px;
+  border-radius:48% 52% 40% 44%; border:1px solid #ffffff70;
+  background:radial-gradient(ellipse at 30% 24%,var(--leaf-light),var(--leaf) 50%,var(--leaf-dark));
+  box-shadow:-5px 5px 0 -2px var(--leaf),5px 5px 0 -2px var(--leaf-dark);
+  transform:scale(var(--growth,1)); transform-origin:50% 100%;
+  transition:transform 650ms ease,background 650ms ease,box-shadow 650ms ease;
+}
+.plant-variant-1 .vegetation-crown { border-radius:65% 35% 55% 45%; width:17px; left:4px; }
+.plant-variant-2 .vegetation-crown { height:18px; bottom:9px; border-radius:50% 50% 35% 35%; }
+.vegetation-plant[data-band="sparse"] { --leaf:#b0aa6a; --leaf-light:#e4dca5; --leaf-dark:#7a8253; }
+.vegetation-plant[data-band="meadow"] { --leaf:#9cc572; --leaf-light:#d8e9a7; --leaf-dark:#628e55; }
+.vegetation-plant[data-band="woodland"] { --leaf:#67b181; --leaf-light:#b0dca0; --leaf-dark:#367a61; }
+.vegetation-plant[data-band="forest"] { --leaf:#38976d; --leaf-light:#91cf94; --leaf-dark:#1b6550; }
+.vegetation-plant[data-trend="growing"] .vegetation-crown { border-color:#ecffd6; }
+.vegetation-plant[data-trend="declining"] .vegetation-crown { border-color:#e7c994; }
+.layer-switch { flex-wrap:wrap; }
+.layer-switch button { flex-basis:calc(50% - 4px); }
+.layer-switch button[data-layer="vegetation"][aria-pressed="true"] { color:#c8ead3; border-color:#9bcdb0; background:#1d3b34; }
+.vegetation-key {
+  width:246px; gap:10px; color:#213d59; background:#f6fbffed;
+  border:1px solid #b6d6ed; border-left:3px solid #70a886; border-radius:8px;
+  box-shadow:0 4px 18px #12334b1a; z-index:2;
+}
+.vegetation-key .key-title { color:#153554; }
+.vegetation-key .key-scale { color:#47647a; line-height:1.5; }
+.vegetation-ramp { height:12px; border-radius:3px; background:linear-gradient(90deg,var(--vegetation-colour-0),var(--vegetation-colour-1),var(--vegetation-colour-2),var(--vegetation-colour-3),var(--vegetation-colour-4)); }
+.vegetation-range { display:flex; justify-content:space-between; font-size:10px; }
+.vegetation-tree-note { margin:0; font-size:10px; line-height:1.5; }
+.vegetation-missing { display:inline-block; width:11px; height:8px; background:var(--vegetation-no-data); border:1px solid #91a7b5; margin-right:5px; }
+.hover-label { z-index:3; }
+.vegetation-summary { margin:0; padding-top:7px; border-top:1px solid #d2e4ef; color:#47647a; font-size:9px; line-height:1.5; }
+.employment-change[data-trend="growing"] { color:#a8dfb9; }
+.employment-change[data-trend="declining"] { color:#e7c994; }
+@media (max-width:760px) { .vegetation-key { width:210px; bottom:18px; } }
+@media (prefers-reduced-motion:reduce) {
+  .vegetation-plant,.vegetation-plant::before,.vegetation-crown { transition:none !important; }
+}

@@ -97,7 +97,12 @@ def ensure_native_binary() -> Path:
 
 
 # Named workbook tabs the native pipeline reads, by output file stem.
-WORKBOOK_TABS = {"income": "16", "density": "3"}
+WORKBOOK_TABS = {
+    "income": "16",
+    "density": "3",
+    "employment_gb": "11",
+    "employment_ni": "12",
+}
 
 
 def unpack_workbook_xml(
@@ -156,17 +161,21 @@ class TerrainStore:
             temporary = Path(directory)
             strings, sheets = unpack_workbook_xml(WORKBOOK_PATH, temporary)
             product, context = temporary / "terrain.json", temporary / "context.json"
+            command = [
+                str(binary),
+                "--history" if history else "--build",
+                str(BOUNDARY_PATH),
+                str(strings),
+                str(sheets["income"]),
+                str(sheets["density"]),
+            ]
+            if not history:
+                command.extend(
+                    [str(sheets["employment_gb"]), str(sheets["employment_ni"])]
+                )
+            command.extend([str(product), str(context)])
             result = subprocess.run(
-                [
-                    str(binary),
-                    "--history" if history else "--build",
-                    str(BOUNDARY_PATH),
-                    str(strings),
-                    str(sheets["income"]),
-                    str(sheets["density"]),
-                    str(product),
-                    str(context),
-                ],
+                command,
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -271,6 +280,7 @@ class TerrainStore:
                 "method",
                 "matched_authorities",
                 "population_density",
+                "employment",
             )
             if key in metadata
         }
@@ -298,4 +308,15 @@ class TerrainStore:
                     facts["selected_authority"][field] = (
                         self._history_context[surface].get(year, {}).get(selected)
                     )
+                observations = self._facts.get("employment", {})
+                rate = observations.get(year, {}).get(selected)
+                previous = observations.get(str(int(year) - 1), {}).get(selected)
+                facts["selected_authority"]["employment_rate"] = rate
+                facts["selected_authority"]["employment_change_pp"] = (
+                    round(rate - previous, 6)
+                    if rate is not None and previous is not None
+                    else None
+                )
+            if "employment" in facts:
+                facts["employment"] = {**facts["employment"], "source_year": year}
         return facts

@@ -6,10 +6,11 @@ import { MapNavigation } from "./mapnavigation.js";
 import { TerrainControls, formatDensity } from "../GUI/terraincontrols.js";
 import { CapriCompanion } from "../GUI/capri.js";
 import { Timeline } from "../GUI/timeline.js";
+import { VegetationLayer, vegetationState } from "./vegetation.js";
 
 const canvas=document.querySelector("#map"), panel=document.querySelector(".map-panel");
 const loading=document.querySelector("#loading"), explain=document.querySelector("#explain-area");
-let texture,renderer,navigation,interaction,selection,selectedPosition,timeline,terrainData,framePending=false;
+let texture,renderer,navigation,interaction,selection,selectedPosition,timeline,terrainData,vegetation,employmentYear,framePending=false;
 const controls=new TerrainControls({
   onChange:()=>{timeline?.useSurface();interaction?.invalidate();if(selection)showArea(selection,selectedPosition);requestDraw();},
   onZoom:factor=>navigation?.zoom(factor),
@@ -29,7 +30,8 @@ function requestDraw() {
 function draw(now=performance.now()) {
   if(!navigation?.view || !renderer || renderer.gl.isContextLost())return;
   const highlights=interaction?.highlights(now) || [];
-  renderer.draw(navigation.view,controls.surface,navigation.mode,highlights);
+  renderer.draw(navigation.view,controls.surface,navigation.mode,highlights,controls.vegetation);
+  vegetation?.draw(navigation.view,renderer.camera(navigation.view,navigation.mode).matrix,controls.vegetation);
   if(interaction?.animating && !document.hidden)requestDraw();
 }
 
@@ -48,13 +50,40 @@ function showArea(area,position) {
     ["Income per head",income===null?"No matching value":"£"+Math.round(income).toLocaleString()],
     ["Population density",density===null?"No matching value":formatDensity(density)],
   ];
+  if(controls.vegetation) {
+    const {employment_rate:rate,employment_change_pp:change}=area.feature.properties;
+    rows.splice(0,rows.length,["Employment · "+employmentYear,Number.isFinite(rate)?rate.toFixed(1)+"%":"No data for this year"],
+      ["Annual change",Number.isFinite(change)?(change>0?"+":"")+change.toFixed(1)+" percentage points":"Previous year unavailable"]);
+  }
   stats.replaceChildren(...rows.map(([label,value])=>{
     const row=document.createElement("div"),term=document.createElement("dt"),detail=document.createElement("dd");
     term.textContent=label;detail.textContent=value;row.append(term,detail);return row;
   }));
 }
 
+function applyEmploymentFrame(frame,series) {
+  employmentYear=frame.year;
+  const previous=series.frames.find(item=>Number(item.year)===Number(frame.year)-1);
+  for(const feature of terrainData.features) {
+    const code=feature.properties.authority_code,rate=frame.observations[code];
+    const state=vegetationState(rate,previous?.observations[code]);
+    feature.properties.employment_rate=state.available?rate:null;
+    feature.properties.employment_change_pp=state.change;
+  }
+  vegetation.setFrame(frame,previous);
+  renderer.setVegetation(frame.observations,vegetation.palette,vegetation.missingColour);
+  controls.setEmploymentSource(frame.year);
+  capri.selectedYear=frame.year;
+  document.querySelector("#source-note").textContent="Employment rate, ages 16–64, "+frame.year+
+    ". ONS (Great Britain) / NISRA (Northern Ireland). Missing or suppressed values stay unavailable. Vegetation is a visual metaphor.";
+}
+
 function applyFrame(name,frame,series) {
+  if(name==="employment") {
+    applyEmploymentFrame(frame,series);
+    if(selection)showArea(selection,selectedPosition);
+    interaction.invalidate();requestDraw();return;
+  }
   const year=frame.year;
   const observationsBySurface=Object.fromEntries(Object.entries(timeline.data).map(([key,value])=>[key,value.frames.find(item=>item.year===year)?.observations]));
   for(const feature of terrainData.features) {
@@ -80,10 +109,19 @@ async function initialise() {
     const terrain=await response.json(), areas=new AreaIndex(terrain.features);
     terrainData=terrain;
     texture=new TerrainTexture(terrain,areas);
+    vegetation=new VegetationLayer(document.querySelector("#vegetation-overlay"),areas);
+    employmentYear=terrain.metadata.employment?.source_year;
+    const employment=terrain.employment;
+    if(employment?.frames.length) {
+      const latest=employment.frames.at(-1);
+      vegetation.setFrame(latest,employment.frames.find(item=>Number(item.year)===Number(latest.year)-1));
+      controls.setEmploymentSource(latest.year);
+    }
     renderer=new TerrainRenderer(canvas,{income:terrain.dem,density:terrain.density_dem},texture,areas,{
       onUnavailable:()=>{loading.textContent="Restoring map graphics…";loading.classList.remove("hidden");},
       onRestore:()=>{loading.classList.add("hidden");requestDraw();},
     });
+    if(employment?.frames.length)renderer.setVegetation(employment.frames.at(-1).observations,vegetation.palette,vegetation.missingColour);
     navigation=new MapNavigation({
       canvases:[canvas],panel,bounds:terrain.metadata.bounds,
       onChange:()=>{interaction?.invalidate();requestDraw();},
@@ -95,8 +133,8 @@ async function initialise() {
       canvas,index:areas,renderer,getView:()=>navigation.view,getMode:()=>navigation.mode,
       getSurface:()=>controls.surface,isDragging:()=>navigation.pointers.size>0,
       onChange:requestDraw,onSelect:showArea,
-      describe:({authority_name:name,population_density:density})=>
-        name+(density===null?"":" · "+formatDensity(density)),
+      describe:({authority_name:name,population_density:density,employment_rate:rate})=>
+        name+(controls.vegetation?" · "+(Number.isFinite(rate)?rate.toFixed(1)+"% employed":"No employment data"):(density===null?"":" · "+formatDensity(density))),
     });
     controls.setReady();controls.setLegend(texture.colourRange,texture.peakHeight);
     const density=terrain.metadata.population_density;
@@ -105,7 +143,7 @@ async function initialise() {
       terrain.metadata.matched_authorities+" of "+terrain.features.length+" planning authorities matched; special authorities remain unshaded."+
       (density?" Population density (ONS, mid-"+density.source_year+"): "+density.matched_authorities+" matched.":"");
     draw();loading.classList.add("hidden");
-    timeline=new Timeline(()=>controls.surface,applyFrame);
+    timeline=new Timeline(()=>controls.timelineSurface,applyFrame,employment?{employment}:{});
   } catch(error){loading.textContent="Could not load the map: "+error.message;}
 }
 initialise();

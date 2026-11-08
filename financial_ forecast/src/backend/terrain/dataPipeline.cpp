@@ -104,6 +104,7 @@ Table readTable(const std::filesystem::path& stringsPath, const std::filesystem:
     Table result;
     std::string latest;
     int valueColumn = -1;
+    int measureColumn = -1;
     std::map<std::string,std::pair<std::string,int>> columns;
     for (auto* row = rows->first_node(); row; row = row->next_sibling()) {
         std::map<int, std::string> cells;
@@ -129,6 +130,8 @@ Table readTable(const std::filesystem::path& stringsPath, const std::filesystem:
         }
         if (valueColumn < 0) {
             if (cells[0] != "Area code" || cells[1] != "Area name") continue;
+            for (const auto& [column, heading] : cells)
+                if (heading == "Measure") measureColumn = column;
             // Headers start with an ISO date: "2024-01-01/P1Y (...)" or "2025-06-30 (Persons)".
             for (const auto& [column, heading] : cells) {
                 if (column >= 2 && heading.size() >= 10 && heading[4] == '-' && heading[7] == '-' &&
@@ -144,6 +147,8 @@ Table readTable(const std::filesystem::path& stringsPath, const std::filesystem:
             continue;
         }
         if (!localAuthority(cells[0]) || cells[1].empty()) continue;
+        // Rates include confidence interval rows; only observations are facts.
+        if (measureColumn >= 0 && cells[measureColumn] != "Observation value") continue;
         for (const auto& [year, entry] : columns) {
             if (const auto v=number(cells[entry.second])) result.history[year][normalized(cells[1])]=*v;
         }
@@ -254,13 +259,20 @@ void geometry(Writer& writer, const JSON& value) {
     } else throw std::runtime_error("Unsupported boundary geometry: " + type);
     writer.EndObject();
 }
-struct Feature { std::string code, name; std::optional<double> income, density; };
+struct Feature {
+    std::string code, name;
+    std::optional<double> income, density, employment, employmentChange;
+};
 void properties(Writer& writer, const Feature& feature) {
     writer.StartObject(); key(writer,"authority_code"); text(writer,feature.code);
     key(writer,"authority_name"); text(writer,feature.name); key(writer,"income_per_head");
     if (feature.income) writer.Double(*feature.income); else writer.Null_();
     key(writer,"population_density");
     if (feature.density) writer.Double(*feature.density); else writer.Null_();
+    key(writer,"employment_rate");
+    if (feature.employment) writer.Double(*feature.employment); else writer.Null_();
+    key(writer,"employment_change_pp");
+    if (feature.employmentChange) writer.Double(*feature.employmentChange); else writer.Null_();
     writer.EndObject();
 }
 // Density heights are log10(residents per km²), rescaled by writeDEM to 0–1000:
@@ -277,7 +289,8 @@ DensitySummary summarize(const std::vector<Sample>& samples) {
     return summary;
 }
 void metadata(Writer& writer, const Table& income, const Table& density, unsigned matched,
-              const DensitySummary& densitySummary, unsigned total) {
+              const DensitySummary& densitySummary, unsigned total,
+              const Table& employment, unsigned employmentMatched) {
     writer.StartObject(); key(writer,"metric"); text(writer,"Gross disposable household income per head");
     key(writer,"source_year"); text(writer,income.year);
     key(writer,"elevation_range_m"); writer.StartArray(); writer.Int(0); writer.Int(1000); writer.EndArray();
@@ -296,7 +309,51 @@ void metadata(Writer& writer, const Table& income, const Table& density, unsigne
     key(writer,"log10_range"); writer.StartArray();
     writer.Double(densitySummary.log10Range[0]); writer.Double(densitySummary.log10Range[1]); writer.EndArray();
     key(writer,"method"); text(writer,"Smoothed inverse-distance interpolation of log10 density samples into its own RichDEM grid (density_dem); synthetic elevation, not geographic altitude");
+    writer.EndObject();
+    key(writer,"employment"); writer.StartObject();
+    key(writer,"metric"); text(writer,"Employment rate, ages 16 to 64");
+    key(writer,"units"); text(writer,"percent");
+    key(writer,"source_year"); text(writer,employment.year);
+    key(writer,"source"); text(writer,"ONS (Great Britain), NISRA (Northern Ireland); workbook tabs 11 and 12");
+    key(writer,"matched_authorities"); writer.Uint(employmentMatched);
+    key(writer,"unmatched_authorities"); writer.Uint(total-employmentMatched);
+    key(writer,"method"); text(writer,"Observed employment rate controls illustrative CSS vegetation, not real land cover. Changes are percentage points versus the previous calendar year; missing observations remain unavailable.");
     writer.EndObject(); writer.EndObject();
+}
+
+Table employmentTable(const std::filesystem::path& strings, const std::filesystem::path& gb,
+                      const std::filesystem::path& ni) {
+    if (gb.empty() || ni.empty()) return {};
+    auto result = readTable(strings,gb,"employment workbook tab 11");
+    const auto northernIreland = readTable(strings,ni,"employment workbook tab 12");
+    result.year = std::max(result.year,northernIreland.year);
+    for (const auto& [year,values] : northernIreland.history)
+        result.history[year].insert(values.begin(),values.end());
+    result.values = result.history.at(result.year);
+    return result;
+}
+
+void employmentSeries(Writer& writer, const Table& table, const std::vector<Feature>& records, bool indexed = false) {
+    writer.StartObject();
+    if (!indexed) { key(writer,"frames"); writer.StartArray(); }
+    for (const auto& [year,values] : table.history) {
+        if (indexed) text(writer,year);
+        else {
+            writer.StartObject(); key(writer,"year"); text(writer,year);
+            key(writer,"observations");
+        }
+        writer.StartObject();
+        for (const auto& record : records) {
+            const auto value = values.find(normalized(record.name));
+            if (value != values.end() && value->second <= 100) {
+                text(writer,record.code); writer.Double(value->second);
+            }
+        }
+        writer.EndObject();
+        if (!indexed) writer.EndObject();
+    }
+    if (!indexed) writer.EndArray();
+    writer.EndObject();
 }
 }
 
@@ -367,9 +424,11 @@ void buildHistory(const std::filesystem::path& boundaries, const std::filesystem
 
 void buildProduct(const std::filesystem::path& boundaries, const std::filesystem::path& sharedStrings,
                   const std::filesystem::path& incomeSheet, const std::filesystem::path& densitySheet,
-                  const std::filesystem::path& output, const std::filesystem::path& context) {
+                  const std::filesystem::path& output, const std::filesystem::path& context,
+                  const std::filesystem::path& employmentGB, const std::filesystem::path& employmentNI) {
     const auto income = readTable(sharedStrings,incomeSheet,"income workbook tab 16");
     const auto density = readTable(sharedStrings,densitySheet,"population density workbook tab 3");
+    const auto employment = employmentTable(sharedStrings,employmentGB,employmentNI);
     auto source = readChars(boundaries);
     rapidjson::Document document; document.ParseInsitu<0>(source.data());
     if (document.HasParseError()) throw std::runtime_error("Invalid planning-authority GeoJSON.");
@@ -377,10 +436,22 @@ void buildProduct(const std::filesystem::path& boundaries, const std::filesystem
     if (!features.IsArray()) throw std::runtime_error("Expected a GeoJSON feature array.");
     std::vector<Feature> records;
     std::vector<Sample> samples, densitySamples;
+    unsigned employmentMatched = 0;
     for (rapidjson::SizeType i = 0; i < features.Size(); ++i) {
         const auto& props = field(features[i],"properties");
-        Feature record{stringField(props,"LPA26CD"),stringField(props,"LPA26NM"),std::nullopt,std::nullopt};
+        Feature record{stringField(props,"LPA26CD"),stringField(props,"LPA26NM"),
+            std::nullopt,std::nullopt,std::nullopt,std::nullopt};
         const auto lookup = normalized(record.name);
+        if (const auto found = employment.values.find(lookup);
+            found != employment.values.end() && found->second <= 100) {
+            record.employment = found->second; ++employmentMatched;
+            const auto previousYear = employment.history.find(std::to_string(std::stoi(employment.year)-1));
+            if (previousYear != employment.history.end()) {
+                const auto previous = previousYear->second.find(lookup);
+                if (previous != previousYear->second.end() && previous->second <= 100)
+                    record.employmentChange = found->second - previous->second;
+            }
+        }
         if (const auto found = density.values.find(lookup); found != density.values.end() && found->second >= 1) {
             record.density = found->second;
             densitySamples.push_back({numericField(props,"LONG"),numericField(props,"LAT"),std::log10(found->second)});
@@ -410,13 +481,19 @@ void buildProduct(const std::filesystem::path& boundaries, const std::filesystem
     out << ",\"density_dem\":";
     writeDEM(out,GridSpec{},densitySamples,"Log10 population-density synthetic elevation");
     out << ",\"metadata\":";
-    Buffer meta; Writer metaWriter(meta,9); metadata(metaWriter,income,density,samples.size(),densitySummary,records.size());
-    out << meta.GetString() << '}'; out.close();
+    Buffer meta; Writer metaWriter(meta,9);
+    metadata(metaWriter,income,density,samples.size(),densitySummary,records.size(),employment,employmentMatched);
+    out << meta.GetString() << ",\"employment\":";
+    Buffer employmentData; Writer employmentWriter(employmentData,9);
+    employmentSeries(employmentWriter,employment,records);
+    out << employmentData.GetString() << '}'; out.close();
     Buffer facts; Writer writer(facts,9);
-    writer.StartObject(); key(writer,"metadata"); metadata(writer,income,density,samples.size(),densitySummary,records.size());
+    writer.StartObject(); key(writer,"metadata");
+    metadata(writer,income,density,samples.size(),densitySummary,records.size(),employment,employmentMatched);
     key(writer,"authorities"); writer.StartObject();
     for (const auto& record : records) { text(writer,record.code); properties(writer,record); }
-    writer.EndObject(); writer.EndObject();
+    writer.EndObject(); key(writer,"employment"); employmentSeries(writer,employment,records,true);
+    writer.EndObject();
     std::ofstream sidecar(context, std::ios::binary); sidecar.exceptions(std::ios::badbit | std::ios::failbit);
     sidecar << facts.GetString();
 }

@@ -1,4 +1,5 @@
 import { createProgram, uploadBuffer } from "./gl.js";
+import { vegetationColourTable } from "../vegetation.js";
 
 const lineVertex = `
 attribute vec2 start;
@@ -37,6 +38,22 @@ uniform vec4 colour;
 void main() { gl_FragColor = colour; }
 `;
 const corners = new Float32Array([0,-1,1,-1,0,1,0,1,1,-1,1,1]);
+const vegetationVertex = `
+attribute vec2 position;
+attribute float authority;
+uniform mat4 camera;
+varying float colourU;
+void main() {
+  gl_Position = camera * vec4(position.x,0.0,position.y,1.0);
+  colourU = authority;
+}
+`;
+const vegetationFragment = `
+precision mediump float;
+uniform sampler2D areaColours;
+varying float colourU;
+void main() { gl_FragColor = texture2D(areaColours,vec2(colourU,.5)); }
+`;
 
 // Border instances and hover meshes are uploaded once, never rebuilt on a pan.
 export class AreaLayer {
@@ -62,6 +79,40 @@ export class AreaLayer {
       }
       this.expandedBuffer=uploadBuffer(gl,gl.ARRAY_BUFFER,expanded);
     }
+  }
+
+  setVegetation(observations,palette,missing) {
+    const gl=this.gl,{width,colours}=vegetationColourTable(this.index,observations,palette,missing);
+    gl.activeTexture(gl.TEXTURE0);
+    if(!this.vegetationTexture) {
+      this.vegetationProgram=createProgram(gl,vegetationVertex,vegetationFragment,["position","authority"]);
+      this.vegetationCamera=gl.getUniformLocation(this.vegetationProgram,"camera");
+      gl.useProgram(this.vegetationProgram);
+      gl.uniform1i(gl.getUniformLocation(this.vegetationProgram,"areaColours"),0);
+      const ids=new Float32Array(this.index.fills().length/2);
+      this.index.areas.forEach((area,i)=>ids.fill((i+.5)/width,area.fillStart,area.fillStart+area.fillCount));
+      this.authorityBuffer=uploadBuffer(gl,gl.ARRAY_BUFFER,ids);
+      this.vegetationTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.vegetationTexture);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,1,0,gl.RGBA,gl.UNSIGNED_BYTE,colours);
+    }else {
+      gl.bindTexture(gl.TEXTURE_2D,this.vegetationTexture);
+      gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,width,1,gl.RGBA,gl.UNSIGNED_BYTE,colours);
+    }
+  }
+
+  drawVegetation(matrix) {
+    const gl=this.gl;
+    gl.useProgram(this.vegetationProgram);
+    gl.enableVertexAttribArray(0);gl.enableVertexAttribArray(1);gl.disableVertexAttribArray(2);
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.fillBuffer);gl.vertexAttribPointer(0,2,gl.FLOAT,false,8,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.authorityBuffer);gl.vertexAttribPointer(1,1,gl.FLOAT,false,4,0);
+    gl.uniformMatrix4fv(this.vegetationCamera,false,matrix);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.vegetationTexture);
+    gl.drawArrays(gl.TRIANGLES,0,this.index.fills().length/2);
   }
 
   stroke(matrix,view,start,count,width,colour,glow=false) {
@@ -94,10 +145,11 @@ export class AreaLayer {
     gl.drawArrays(gl.TRIANGLES,area.fillStart,area.fillCount);
   }
 
-  draw(matrix,view,highlights) {
+  draw(matrix,view,highlights,light=false) {
     const gl=this.gl;
     gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-    this.stroke(matrix,view,0,this.index.segments.length/4,.9,[.55,.67,.79,.8]);
+    if(light && this.vegetationTexture)this.drawVegetation(matrix);
+    this.stroke(matrix,view,0,this.index.segments.length/4,.9,light?[.3,.49,.59,.65]:[.55,.67,.79,.8]);
     for(const {area,opacity} of highlights) {
       this.highlight(matrix,area,opacity);
       this.stroke(matrix,view,area.lineStart,area.lineCount,6,[.25,1,1,.45*opacity],true);

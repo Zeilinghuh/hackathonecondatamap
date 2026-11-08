@@ -4,6 +4,7 @@ const NOTES = {
   terrain: "Blue lows → cyan → green → yellow → red → dark crimson peaks.",
   density: "Population density terrain: height follows log₁₀ residents per km². Bright blue lows are sparse, black peaks are crowded; contours are white.",
   borders: "Authority borders only. Hover an area, then click to select it.",
+  vegetation: "Darker green shows higher employment. Small trees mark only 85%+ areas. Move the year slider, then select an area for its rate and annual change.",
 };
 export const formatDensity = value => Math.round(value).toLocaleString() + " / km²";
 
@@ -52,6 +53,8 @@ export class TerrainControls {
   get surface() { return {terrain: "income", density: "density"}[this.layer] ?? null; }
   get visible() { return this.surface !== null; }
   get density() { return this.layer === "density"; }
+  get vegetation() { return this.layer === "vegetation"; }
+  get timelineSurface() { return this.vegetation ? "employment" : this.surface; }
 
   setLayer(layer) {
     this.layer = layer;
@@ -59,6 +62,11 @@ export class TerrainControls {
     document.querySelector("#control-note").textContent = NOTES[layer];
     document.querySelector("#terrain-key").hidden = layer !== "terrain";
     document.querySelector("#density-key").hidden = layer !== "density";
+    document.querySelector("#vegetation-key").hidden = layer !== "vegetation";
+  }
+
+  setEmploymentSource(year) {
+    document.querySelector("#vegetation-title").textContent = "Employment landscape · " + year;
   }
 
   buildDensityLegend() {
@@ -102,8 +110,8 @@ export class TerrainControls {
       ? "Drag to move · Shift-drag to rotate · Scroll to zoom"
       : "Scroll to zoom · Drag to explore";
     document.querySelector("#map").setAttribute("aria-label",mode === "3d"
-      ? "3D income terrain. Drag or use arrow keys to pan. Shift-drag or Shift-arrow rotates. Scroll or press plus and minus to zoom. Zero resets the UK view."
-      : "UK income and population density map. Drag or use arrow keys to pan, plus and minus to zoom, and zero to reset.");
+      ? "3D economic landscape. Drag or use arrow keys to pan. Shift-drag or Shift-arrow rotates. Scroll or press plus and minus to zoom. Zero resets the UK view."
+      : "UK income, population density and employment vegetation map. Drag or use arrow keys to pan, plus and minus to zoom, and zero to reset.");
   }
 
   set3DAvailable(available, message = "") {
