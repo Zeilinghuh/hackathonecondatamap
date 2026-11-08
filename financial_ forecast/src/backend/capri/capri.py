@@ -130,7 +130,7 @@ class CapriService:
                 + history
                 + [{"role": "user", "content": message}],
                 "temperature": 0.35,
-                "max_tokens": 220,
+                "max_tokens": 2500,
                 "repetition_penalty": 1.1,
                 "stream": False,
                 "reasoning_effort": "none",
